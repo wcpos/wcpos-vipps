@@ -26,9 +26,13 @@ export function App({ config }: AppProps) {
     const form = document.querySelector<HTMLFormElement>('form#order_review, form.checkout');
     if (!form) return;
 
-    const button = form.querySelector<HTMLButtonElement>('#place_order, button[type="submit"]');
-    if (button) {
-      button.click();
+    const placeOrderButton = form.querySelector<HTMLButtonElement>(
+      '#place_order, button[name="woocommerce_checkout_place_order"]'
+    );
+    if (typeof form.requestSubmit === 'function') {
+      form.requestSubmit(placeOrderButton ?? undefined);
+    } else if (placeOrderButton) {
+      placeOrderButton.click();
     } else {
       form.submit();
     }

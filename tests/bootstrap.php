@@ -10,11 +10,21 @@ if ( ! function_exists( 'str_contains' ) ) {
 }
 
 // Define WP constants used by the plugin.
-define( 'ABSPATH', '/tmp/wordpress/' );
-define( 'WCPOS_VIPPS_VERSION', '0.0.1' );
-define( 'WCPOS_VIPPS_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
-define( 'WCPOS_VIPPS_PLUGIN_URL', 'http://example.com/wp-content/plugins/wcpos-vipps/' );
-define( 'HOUR_IN_SECONDS', 3600 );
+if ( ! defined( 'ABSPATH' ) ) {
+	define( 'ABSPATH', '/tmp/wordpress/' );
+}
+if ( ! defined( 'WCPOS_VIPPS_VERSION' ) ) {
+	define( 'WCPOS_VIPPS_VERSION', '0.0.1' );
+}
+if ( ! defined( 'WCPOS_VIPPS_PLUGIN_DIR' ) ) {
+	define( 'WCPOS_VIPPS_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
+}
+if ( ! defined( 'WCPOS_VIPPS_PLUGIN_URL' ) ) {
+	define( 'WCPOS_VIPPS_PLUGIN_URL', 'http://example.com/wp-content/plugins/wcpos-vipps/' );
+}
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
+	define( 'HOUR_IN_SECONDS', 3600 );
+}
 
 // Minimal WC_Payment_Gateway stub so Gateway can extend it.
 if ( ! class_exists( 'WC_Payment_Gateway' ) ) {

@@ -104,7 +104,7 @@ describe('useVippsPayment', () => {
     expect(result.current.state).toBe('polling');
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersToNextTimerAsync();
     });
 
     expect(result.current.state).toBe('authorized');
@@ -128,7 +128,7 @@ describe('useVippsPayment', () => {
     });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersToNextTimerAsync();
     });
 
     expect(result.current.state).toBe('cancelled');

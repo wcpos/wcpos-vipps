@@ -27,6 +27,8 @@ export function useVippsPayment({ ajaxUrl, orderId, token }: UseVippsPaymentOpti
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCountRef = useRef(0);
+  const pollInFlightRef = useRef(false);
+  const cancelledRef = useRef(false);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -34,6 +36,7 @@ export function useVippsPayment({ ajaxUrl, orderId, token }: UseVippsPaymentOpti
       pollingRef.current = null;
     }
     pollCountRef.current = 0;
+    pollInFlightRef.current = false;
   }, []);
 
   // Clean up on unmount.
@@ -42,14 +45,18 @@ export function useVippsPayment({ ajaxUrl, orderId, token }: UseVippsPaymentOpti
   }, [stopPolling]);
 
   const startPolling = useCallback(() => {
+    stopPolling();
     pollCountRef.current = 0;
 
     pollingRef.current = setInterval(async () => {
+      if (pollInFlightRef.current) return;
+      pollInFlightRef.current = true;
       pollCountRef.current++;
 
       if (pollCountRef.current >= MAX_POLLS) {
         stopPolling();
         setState('expired');
+        setQrUrl(null);
         setError('Payment expired. Please try again.');
         return;
       }
@@ -67,14 +74,18 @@ export function useVippsPayment({ ajaxUrl, orderId, token }: UseVippsPaymentOpti
         } else if (vippsState === 'ABORTED' || vippsState === 'TERMINATED') {
           stopPolling();
           setState('cancelled');
+          setQrUrl(null);
         } else if (vippsState === 'EXPIRED') {
           stopPolling();
           setState('expired');
+          setQrUrl(null);
           setError('Payment expired. Please try again.');
         }
         // CREATED = still waiting, continue polling.
       } catch {
         // Silently continue polling on network hiccups.
+      } finally {
+        pollInFlightRef.current = false;
       }
     }, POLL_INTERVAL);
   }, [ajaxUrl, orderId, token, stopPolling]);
@@ -83,9 +94,13 @@ export function useVippsPayment({ ajaxUrl, orderId, token }: UseVippsPaymentOpti
     setState('creating');
     setError(null);
     setQrUrl(null);
+    cancelledRef.current = false;
 
     try {
       const response = await createPayment(ajaxUrl, orderId, token, flow, phone);
+
+      // Guard: if cancel() was called while createPayment was in flight, discard the response.
+      if (cancelledRef.current) return;
 
       if (response.success) {
         if (flow === 'qr' && response.data.qrUrl) {
@@ -98,6 +113,7 @@ export function useVippsPayment({ ajaxUrl, orderId, token }: UseVippsPaymentOpti
         setError(response.data.message ?? 'Payment failed. Please try again.');
       }
     } catch {
+      if (cancelledRef.current) return;
       setState('failed');
       setError('Network error. Please check your connection.');
     }
@@ -114,8 +130,10 @@ export function useVippsPayment({ ajaxUrl, orderId, token }: UseVippsPaymentOpti
   }, [handleCreate]);
 
   const cancel = useCallback(async () => {
+    cancelledRef.current = true;
     stopPolling();
     setState('cancelled');
+    setQrUrl(null);
 
     try {
       await cancelPaymentApi(ajaxUrl, orderId, token);

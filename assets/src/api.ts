@@ -7,6 +7,9 @@ async function post<T>(url: string, body: Record<string, string>): Promise<AjaxR
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: formData,
   });
+  if (!response.ok) {
+    return { success: false, data: { message: `HTTP error ${response.status}` } as T & { message: string } };
+  }
   return response.json();
 }
 
