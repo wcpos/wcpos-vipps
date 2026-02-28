@@ -59,6 +59,7 @@ class GatewayTest extends TestCase {
 	 */
 	private function inject_api( Gateway $gateway, $mock_api ): void {
 		$ref = new \ReflectionProperty( Gateway::class, 'api' );
+		$ref->setAccessible( true );
 		$ref->setValue( $gateway, $mock_api );
 	}
 

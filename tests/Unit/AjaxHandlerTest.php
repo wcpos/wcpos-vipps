@@ -47,6 +47,7 @@ class AjaxHandlerTest extends TestCase {
 	 */
 	private function call_validate_request( AjaxHandler $handler ): ?\WC_Order {
 		$method = new \ReflectionMethod( AjaxHandler::class, 'validate_request' );
+		$method->setAccessible( true );
 		return $method->invoke( $handler );
 	}
 
