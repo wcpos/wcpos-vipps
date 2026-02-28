@@ -1,6 +1,6 @@
 {
   "name": "testing-ci-react",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "A WooCommerce payment gateway that accepts Vipps and MobilePay payments via QR codes and push notifications. Built for both point-of-sale (POS) and web checkout use cases.",
   "private": true,
   "scripts": {
