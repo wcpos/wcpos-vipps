@@ -1,0 +1,22 @@
+{
+    "name": "wcpos/wcpos-vipps",
+    "description": "Vipps MobilePay payment gateway for WooCommerce",
+    "type": "wordpress-plugin",
+    "license": "GPL-3.0-or-later",
+    "require": {
+        "php": ">=7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "WCPOS\\WooCommercePOS\\Vipps\\": "includes/"
+        }
+    },
+    "require-dev": {
+        "squizlabs/php_codesniffer": "^3.7",
+        "phpcompatibility/php-compatibility": "^9.3"
+    },
+    "scripts": {
+        "lint": "phpcs",
+        "format": "phpcbf"
+    }
+}
