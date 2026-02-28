@@ -180,32 +180,7 @@ class Gateway extends \WC_Payment_Gateway {
 		}
 
 		?>
-		<div id="wcpos-vipps-payment-interface">
-			<div class="wcpos-vipps-phone-section">
-				<label for="wcpos-vipps-phone"><?php esc_html_e( 'Phone number (optional)', 'wcpos-vipps' ); ?></label>
-				<input type="tel" id="wcpos-vipps-phone" name="wcpos_vipps_phone"
-					placeholder="<?php esc_attr_e( 'e.g. 4712345678', 'wcpos-vipps' ); ?>" />
-			</div>
-
-			<div class="wcpos-vipps-actions">
-				<button type="button" id="wcpos-vipps-generate-qr" class="button wcpos-vipps-btn-primary">
-					<?php esc_html_e( 'Generate QR Code', 'wcpos-vipps' ); ?>
-				</button>
-				<button type="button" id="wcpos-vipps-send-push" class="button wcpos-vipps-btn-secondary" disabled>
-					<?php esc_html_e( 'Send to Phone', 'wcpos-vipps' ); ?>
-				</button>
-			</div>
-
-			<div id="wcpos-vipps-qr-display" class="wcpos-vipps-qr-display" style="display:none;">
-				<img id="wcpos-vipps-qr-image" src="" alt="<?php esc_attr_e( 'Vipps QR Code', 'wcpos-vipps' ); ?>" />
-			</div>
-
-			<div id="wcpos-vipps-status" class="wcpos-vipps-status" style="display:none;"></div>
-
-			<button type="button" id="wcpos-vipps-cancel" class="button wcpos-vipps-btn-danger" style="display:none;">
-				<?php esc_html_e( 'Cancel Payment', 'wcpos-vipps' ); ?>
-			</button>
-		</div>
+		<div id="wcpos-vipps-root"></div>
 		<noscript><?php esc_html_e( 'JavaScript is required for Vipps MobilePay payments.', 'wcpos-vipps' ); ?></noscript>
 		<?php
 	}
@@ -307,8 +282,8 @@ class Gateway extends \WC_Payment_Gateway {
 
 		wp_enqueue_script(
 			'wcpos-vipps-payment',
-			WCPOS_VIPPS_PLUGIN_URL . 'assets/js/payment.js',
-			array( 'jquery' ),
+			WCPOS_VIPPS_PLUGIN_URL . 'assets/dist/payment.js',
+			array(),
 			WCPOS_VIPPS_VERSION,
 			true
 		);
@@ -327,6 +302,8 @@ class Gateway extends \WC_Payment_Gateway {
 				'paymentExpired'    => __( 'Payment expired. Please try again.', 'wcpos-vipps' ),
 				'networkError'      => __( 'Network error. Please check your connection.', 'wcpos-vipps' ),
 				'phoneRequired'     => __( 'Please enter a phone number.', 'wcpos-vipps' ),
+				'phoneLabel'        => __( 'Phone number (optional)', 'wcpos-vipps' ),
+				'phonePlaceholder'  => __( 'e.g. 4712345678', 'wcpos-vipps' ),
 			),
 		) );
 	}
