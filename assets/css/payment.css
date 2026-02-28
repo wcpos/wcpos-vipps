@@ -1,0 +1,123 @@
+#wcpos-vipps-payment-interface {
+	padding: 15px 0;
+}
+
+.wcpos-vipps-phone-section {
+	margin-bottom: 15px;
+}
+
+.wcpos-vipps-phone-section label {
+	display: block;
+	margin-bottom: 5px;
+	font-weight: 600;
+}
+
+.wcpos-vipps-phone-section input {
+	width: 100%;
+	max-width: 300px;
+	padding: 8px 12px;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	font-size: 14px;
+}
+
+.wcpos-vipps-actions {
+	display: flex;
+	gap: 10px;
+	margin-bottom: 15px;
+}
+
+.wcpos-vipps-btn-primary {
+	background-color: #ff5b24 !important;
+	color: #fff !important;
+	border-color: #ff5b24 !important;
+}
+
+.wcpos-vipps-btn-primary:hover:not(:disabled) {
+	background-color: #e54d1b !important;
+}
+
+.wcpos-vipps-btn-secondary {
+	background-color: #5a31f4 !important;
+	color: #fff !important;
+	border-color: #5a31f4 !important;
+}
+
+.wcpos-vipps-btn-secondary:hover:not(:disabled) {
+	background-color: #4a28c9 !important;
+}
+
+.wcpos-vipps-btn-primary:disabled,
+.wcpos-vipps-btn-secondary:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.wcpos-vipps-btn-danger {
+	background-color: #d63638 !important;
+	color: #fff !important;
+	border-color: #d63638 !important;
+}
+
+.wcpos-vipps-btn-danger:hover {
+	background-color: #b32d2e !important;
+}
+
+.wcpos-vipps-qr-display {
+	text-align: center;
+	margin: 20px 0;
+}
+
+.wcpos-vipps-qr-display img {
+	max-width: 250px;
+	height: auto;
+	border: 2px solid #eee;
+	border-radius: 8px;
+	padding: 10px;
+	background: #fff;
+}
+
+.wcpos-vipps-status {
+	padding: 12px 16px;
+	border-radius: 4px;
+	margin: 15px 0;
+	font-size: 14px;
+}
+
+.wcpos-vipps-status-success {
+	background: #edfaef;
+	border: 1px solid #00a32a;
+	color: #00a32a;
+}
+
+.wcpos-vipps-status-error {
+	background: #fcf0f1;
+	border: 1px solid #d63638;
+	color: #d63638;
+}
+
+.wcpos-vipps-status-cancelled {
+	background: #fff3cd;
+	border: 1px solid #ffc107;
+	color: #856404;
+}
+
+.wcpos-vipps-status-message {
+	background: #e7f3ff;
+	border: 1px solid #0073aa;
+	color: #0073aa;
+}
+
+@media (max-width: 600px) {
+	.wcpos-vipps-actions {
+		flex-direction: column;
+	}
+
+	.wcpos-vipps-actions button {
+		width: 100%;
+	}
+
+	.wcpos-vipps-phone-section input {
+		max-width: 100%;
+	}
+}
