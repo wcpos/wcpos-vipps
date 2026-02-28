@@ -64,7 +64,13 @@ export function useVippsPayment({ ajaxUrl, orderId, token }: UseVippsPaymentOpti
       try {
         const response = await checkStatus(ajaxUrl, orderId, token);
 
-        if (!response.success) return;
+        if (!response.success) {
+          stopPolling();
+          setState('failed');
+          setQrUrl(null);
+          setError(response.data.message ?? 'Unable to verify payment status. Please try again.');
+          return;
+        }
 
         const vippsState = response.data.state;
 

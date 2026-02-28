@@ -134,6 +134,31 @@ describe('useVippsPayment', () => {
     expect(result.current.state).toBe('cancelled');
   });
 
+  it('transitions to failed when status check returns success false', async () => {
+    vi.mocked(api.createPayment).mockResolvedValue({
+      success: true,
+      data: { reference: 'ref-5', flow: 'qr', qrUrl: 'https://qr.vipps.no/z.png' },
+    });
+
+    vi.mocked(api.checkStatus).mockResolvedValue({
+      success: false,
+      data: { state: '', message: 'Status check failed' },
+    });
+
+    const { result } = renderHook(() => useVippsPayment(mockConfig));
+
+    await act(async () => {
+      result.current.createQr();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
+
+    expect(result.current.state).toBe('failed');
+    expect(result.current.error).toBe('Status check failed');
+  });
+
   it('cancels payment and stops polling', async () => {
     vi.mocked(api.createPayment).mockResolvedValue({
       success: true,
