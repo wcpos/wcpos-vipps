@@ -26,9 +26,10 @@ describe('production build', () => {
     // Allow "process" inside strings (e.g. error messages) by only matching
     // unquoted references that look like property access.
     const lines = bundleContent.split('\n');
-    const offending = lines.filter(
-      (line) => /\bprocess\s*[.[]\s*["']?env/.test(line)
-    );
+    const stripQuoted = (line: string) =>
+      line.replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '');
+    const bareProcessEnv = /\bprocess\s*(?:\.\s*env|\[\s*["']?env["']?\s*\])/;
+    const offending = lines.filter((line) => bareProcessEnv.test(stripQuoted(line)));
     expect(offending).toHaveLength(0);
   });
 });
