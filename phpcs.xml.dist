@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<ruleset name="wcpos-vipps">
+	<description>PHPCS configuration for WooCommerce POS Vipps plugin</description>
+
+	<file>includes/</file>
+	<file>wcpos-vipps.php</file>
+
+	<arg name="extensions" value="php"/>
+	<arg value="sp"/>
+
+	<rule ref="PHPCompatibility"/>
+
+	<config name="testVersion" value="7.4-"/>
+</ruleset>

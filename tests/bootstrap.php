@@ -2,6 +2,13 @@
 
 require_once dirname( __DIR__ ) . '/vendor/autoload.php';
 
+// Polyfill str_contains for PHP 7.4.
+if ( ! function_exists( 'str_contains' ) ) {
+	function str_contains( string $haystack, string $needle ): bool {
+		return '' === $needle || false !== strpos( $haystack, $needle );
+	}
+}
+
 // Define WP constants used by the plugin.
 define( 'ABSPATH', '/tmp/wordpress/' );
 define( 'WCPOS_VIPPS_VERSION', '0.0.1' );
