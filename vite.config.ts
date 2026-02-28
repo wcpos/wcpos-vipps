@@ -4,6 +4,11 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['assets/src/__tests__/setup.ts'],
+  },
   build: {
     outDir: resolve(__dirname, 'assets/dist'),
     emptyOutDir: true,
