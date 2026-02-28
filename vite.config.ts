@@ -2,8 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  define:
+    mode !== 'test'
+      ? { 'process.env.NODE_ENV': JSON.stringify('production') }
+      : {},
   test: {
     environment: 'jsdom',
     globals: true,
@@ -24,4 +28,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
