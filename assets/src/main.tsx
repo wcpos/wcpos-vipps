@@ -1,2 +1,16 @@
-// Placeholder - will be replaced with React mount point
-console.log('wcpos-vipps payment loaded');
+import { createRoot } from 'react-dom/client';
+import { App } from './App';
+import type { VippsConfig } from './types';
+
+declare global {
+  interface Window {
+    wcposVippsData?: VippsConfig;
+  }
+}
+
+const container = document.getElementById('wcpos-vipps-root');
+const config = window.wcposVippsData;
+
+if (container && config) {
+  createRoot(container).render(<App config={config} />);
+}
