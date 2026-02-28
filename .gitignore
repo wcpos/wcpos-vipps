@@ -1,2 +1,5 @@
 vendor/
 composer.lock
+.worktrees/
+node_modules/
+assets/dist/

@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if version changed
+        id: check_version
+        run: |
+          VERSION=$(grep -oE "Version:[[:space:]]*[0-9]+(\.[0-9]+)*" wcpos-vipps.php | grep -oE "[0-9]+(\.[0-9]+)*")
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          if git tag | grep -q "v$VERSION"; then
+            echo "release=false" >> $GITHUB_OUTPUT
+          else
+            echo "release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup PHP
+        if: steps.check_version.outputs.release == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Install Composer dependencies (production)
+        if: steps.check_version.outputs.release == 'true'
+        run: composer install --no-dev --no-progress
+
+      - name: Setup Node
+        if: steps.check_version.outputs.release == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install npm dependencies and build
+        if: steps.check_version.outputs.release == 'true'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Create Release
+        if: steps.check_version.outputs.release == 'true'
+        run: |
+          gh release create "v$VERSION" --title "Release v$VERSION" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and upload ZIP
+        if: steps.check_version.outputs.release == 'true'
+        run: |
+          zip -r wcpos-vipps.zip . \
+            -x "*.git*" \
+            -x "node_modules/*" \
+            -x "assets/src/*" \
+            -x "tests/*" \
+            -x "docs/*" \
+            -x "phpunit.xml.dist" \
+            -x "vite.config.ts" \
+            -x "tsconfig.json" \
+            -x ".github/*" \
+            -x "composer.json" \
+            -x "composer.lock" \
+            -x "package.json" \
+            -x "package-lock.json" \
+            -x "phpcs.xml.dist" \
+            -x "vendor/bin/*"
+          gh release upload "v$VERSION" wcpos-vipps.zip --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
