@@ -186,47 +186,8 @@ class Gateway extends \WC_Payment_Gateway {
 			return;
 		}
 
-		$debug = 'yes' === $this->get_option( 'debug' );
-
 		?>
-		<div id="wcpos-vipps-payment-interface">
-			<div class="wcpos-vipps-phone-section">
-				<label for="wcpos-vipps-phone"><?php esc_html_e( 'Phone number (optional)', 'wcpos-vipps' ); ?></label>
-				<input type="tel" id="wcpos-vipps-phone" name="wcpos_vipps_phone"
-					placeholder="<?php esc_attr_e( 'e.g. 4712345678', 'wcpos-vipps' ); ?>" />
-			</div>
-
-			<div class="wcpos-vipps-actions">
-				<button type="button" id="wcpos-vipps-generate-qr" class="button wcpos-vipps-btn-primary">
-					<?php esc_html_e( 'Generate QR Code', 'wcpos-vipps' ); ?>
-				</button>
-				<button type="button" id="wcpos-vipps-send-push" class="button wcpos-vipps-btn-secondary" disabled>
-					<?php esc_html_e( 'Send to Phone', 'wcpos-vipps' ); ?>
-				</button>
-			</div>
-
-			<div id="wcpos-vipps-qr-display" class="wcpos-vipps-qr-display" style="display:none;">
-				<img id="wcpos-vipps-qr-image" src="" alt="<?php esc_attr_e( 'Vipps QR Code', 'wcpos-vipps' ); ?>" />
-			</div>
-
-			<div id="wcpos-vipps-status" class="wcpos-vipps-status" style="display:none;"></div>
-
-			<button type="button" id="wcpos-vipps-cancel" class="button wcpos-vipps-btn-cancel" style="display:none;">
-				<?php esc_html_e( 'Cancel Payment', 'wcpos-vipps' ); ?>
-			</button>
-
-			<?php if ( $debug ) : ?>
-			<div class="wcpos-vipps-log-section">
-				<button type="button" id="wcpos-vipps-log-toggle" class="wcpos-vipps-log-toggle">
-					<span class="chevron">&#9654;</span>
-					<span class="label"><?php esc_html_e( 'Show Log', 'wcpos-vipps' ); ?></span>
-				</button>
-				<div id="wcpos-vipps-log-container" class="wcpos-vipps-log-container">
-					<textarea id="wcpos-vipps-log" readonly></textarea>
-				</div>
-			</div>
-			<?php endif; ?>
-		</div>
+		<div id="wcpos-vipps-root"></div>
 		<noscript><?php esc_html_e( 'JavaScript is required for Vipps MobilePay payments.', 'wcpos-vipps' ); ?></noscript>
 		<?php
 	}

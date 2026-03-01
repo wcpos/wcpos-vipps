@@ -16,15 +16,6 @@
 	--vipps-radius: 6px;
 }
 
-/* ---- Container ---- */
-
-#wcpos-vipps-payment-interface {
-	background: var(--vipps-neutral);
-	border-radius: var(--vipps-radius);
-	padding: 20px;
-	box-shadow: 0 1px 4px rgba(22, 18, 37, 0.06);
-}
-
 /* ---- Phone input ---- */
 
 .wcpos-vipps-phone-section {

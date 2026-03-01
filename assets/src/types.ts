@@ -13,6 +13,7 @@ export interface VippsConfig {
   ajaxUrl: string;
   orderId: number;
   token: string;
+  debug: boolean;
   strings: Record<string, string>;
 }
 
@@ -28,5 +29,5 @@ export interface CheckStatusResponse {
 
 export interface AjaxResponse<T> {
   success: boolean;
-  data: T & { message?: string };
+  data: T & { message?: string; log_entries?: string[] };
 }

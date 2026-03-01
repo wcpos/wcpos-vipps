@@ -9,6 +9,7 @@ const mockConfig = {
   ajaxUrl: 'http://example.com/wp-admin/admin-ajax.php',
   orderId: 42,
   token: 'test-token',
+  debug: true,
 };
 
 describe('useVippsPayment', () => {
@@ -182,5 +183,69 @@ describe('useVippsPayment', () => {
 
     expect(result.current.state).toBe('cancelled');
     expect(api.cancelPayment).toHaveBeenCalledWith(mockConfig.ajaxUrl, mockConfig.orderId, mockConfig.token);
+  });
+
+  it('starts with empty logEntries', () => {
+    const { result } = renderHook(() => useVippsPayment(mockConfig));
+    expect(result.current.logEntries).toEqual([]);
+  });
+
+  it('collects client-side log entries during QR flow', async () => {
+    vi.mocked(api.createPayment).mockResolvedValue({
+      success: true,
+      data: { reference: 'ref-log', flow: 'qr', qrUrl: 'https://qr.vipps.no/log.png' },
+    });
+
+    const { result } = renderHook(() => useVippsPayment(mockConfig));
+
+    await act(async () => {
+      result.current.createQr();
+    });
+
+    expect(result.current.logEntries.some((e) => e.includes('[CLIENT] Generating QR code'))).toBe(true);
+    expect(result.current.logEntries.some((e) => e.includes('[CLIENT] QR code displayed'))).toBe(true);
+  });
+
+  it('collects server log_entries from API responses', async () => {
+    vi.mocked(api.createPayment).mockResolvedValue({
+      success: true,
+      data: {
+        reference: 'ref-srv',
+        flow: 'qr',
+        qrUrl: 'https://qr.vipps.no/srv.png',
+        log_entries: ['[SERVER] Payment created', '[SERVER] ePayment initiated'],
+      },
+    });
+
+    const { result } = renderHook(() => useVippsPayment(mockConfig));
+
+    await act(async () => {
+      result.current.createQr();
+    });
+
+    expect(result.current.logEntries).toContain('[SERVER] Payment created');
+    expect(result.current.logEntries).toContain('[SERVER] ePayment initiated');
+  });
+
+  it('does not collect logs when debug is false', async () => {
+    vi.mocked(api.createPayment).mockResolvedValue({
+      success: true,
+      data: {
+        reference: 'ref-no-dbg',
+        flow: 'qr',
+        qrUrl: 'https://qr.vipps.no/nd.png',
+        log_entries: ['[SERVER] should not appear'],
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useVippsPayment({ ...mockConfig, debug: false })
+    );
+
+    await act(async () => {
+      result.current.createQr();
+    });
+
+    expect(result.current.logEntries).toEqual([]);
   });
 });
