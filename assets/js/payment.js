@@ -63,15 +63,17 @@
 				return;
 			}
 
-			for (var i = 0; i < entries.length; i++) {
-				var $log = $('#wcpos-vipps-log');
-				if (!$log.length) {
-					return;
-				}
-				var current = $log.val();
-				$log.val((current ? current + '\n' : '') + entries[i]);
-				$log[0].scrollTop = $log[0].scrollHeight;
+			var $log = $('#wcpos-vipps-log');
+			if (!$log.length) {
+				return;
 			}
+
+			var current = $log.val();
+			for (var i = 0; i < entries.length; i++) {
+				current = (current ? current + '\n' : '') + entries[i];
+			}
+			$log.val(current);
+			$log[0].scrollTop = $log[0].scrollHeight;
 		},
 
 		// ---- Payment flows ----

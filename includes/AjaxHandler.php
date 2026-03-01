@@ -161,7 +161,9 @@ class AjaxHandler {
 		$result = $api->get_payment( $reference );
 
 		if ( ! $result ) {
-			wp_send_json_error( array( 'message' => 'Failed to check payment status.' ) );
+			$error_data = array( 'message' => 'Failed to check payment status.' );
+			$error_data['log_entries'] = Logger::flush( $order->get_id() );
+			wp_send_json_error( $error_data );
 			return;
 		}
 
