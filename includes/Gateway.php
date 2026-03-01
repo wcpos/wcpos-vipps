@@ -66,6 +66,13 @@ class Gateway extends \WC_Payment_Gateway {
 				'label'   => __( 'Automatically capture payments after authorization', 'wcpos-vipps' ),
 				'default' => 'yes',
 			),
+			'debug' => array(
+				'title'   => __( 'Debug Log', 'wcpos-vipps' ),
+				'type'    => 'checkbox',
+				'label'   => __( 'Enable debug logging', 'wcpos-vipps' ),
+				'description' => __( 'Log payment events to WooCommerce > Status > Logs and show a live log panel on the checkout screen.', 'wcpos-vipps' ),
+				'default' => 'no',
+			),
 			'test_mode' => array(
 				'title'   => __( 'Test Mode', 'wcpos-vipps' ),
 				'type'    => 'checkbox',
