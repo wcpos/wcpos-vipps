@@ -1,112 +1,283 @@
-#wcpos-vipps-payment-interface {
-	padding: 15px 0;
+/* ==========================================================================
+   WCPOS Vipps MobilePay — Payment Interface
+   Brand colors from https://brand.vippsmobilepay.com
+   ========================================================================== */
+
+:root {
+	--vipps-orange: #ff5b24;
+	--vipps-orange-hover: #e54d1b;
+	--vipps-blue: #5a78ff;
+	--vipps-blue-hover: #4a65d9;
+	--vipps-dark: #161225;
+	--vipps-neutral: #f5f5f2;
+	--vipps-success: #14b76f;
+	--vipps-error: #d63638;
+	--vipps-caution: #aeaabf;
+	--vipps-radius: 6px;
 }
 
+/* ---- Container ---- */
+
+#wcpos-vipps-payment-interface {
+	background: var(--vipps-neutral);
+	border-radius: var(--vipps-radius);
+	padding: 20px;
+	box-shadow: 0 1px 4px rgba(22, 18, 37, 0.06);
+}
+
+/* ---- Phone input ---- */
+
 .wcpos-vipps-phone-section {
-	margin-bottom: 15px;
+	margin-bottom: 16px;
 }
 
 .wcpos-vipps-phone-section label {
 	display: block;
-	margin-bottom: 5px;
+	margin-bottom: 6px;
 	font-weight: 600;
+	font-size: 14px;
+	color: var(--vipps-dark);
 }
 
 .wcpos-vipps-phone-section input {
 	width: 100%;
 	max-width: 300px;
-	padding: 8px 12px;
-	border: 1px solid #ddd;
-	border-radius: 4px;
+	padding: 10px 12px;
+	border: 1px solid #d0d0d0;
+	border-radius: var(--vipps-radius);
 	font-size: 14px;
+	background: #fff;
+	color: var(--vipps-dark);
+	transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
+.wcpos-vipps-phone-section input:focus {
+	outline: none;
+	border-color: var(--vipps-orange);
+	box-shadow: 0 0 0 2px rgba(255, 91, 36, 0.15);
+}
+
+/* ---- Action buttons ---- */
 
 .wcpos-vipps-actions {
 	display: flex;
 	gap: 10px;
-	margin-bottom: 15px;
+	margin-bottom: 16px;
+}
+
+.wcpos-vipps-actions button {
+	padding: 10px 20px !important;
+	border-radius: var(--vipps-radius) !important;
+	font-size: 14px !important;
+	font-weight: 600 !important;
+	line-height: 1.4 !important;
+	border: none !important;
+	cursor: pointer;
+	transition: all 0.2s ease;
 }
 
 .wcpos-vipps-btn-primary {
-	background-color: #ff5b24 !important;
+	background-color: var(--vipps-orange) !important;
 	color: #fff !important;
-	border-color: #ff5b24 !important;
+	box-shadow: 0 2px 4px rgba(255, 91, 36, 0.2);
 }
 
 .wcpos-vipps-btn-primary:hover:not(:disabled) {
-	background-color: #e54d1b !important;
+	background-color: var(--vipps-orange-hover) !important;
+	transform: translateY(-1px);
+	box-shadow: 0 4px 8px rgba(255, 91, 36, 0.25);
+}
+
+.wcpos-vipps-btn-primary:active:not(:disabled) {
+	transform: translateY(0);
+	box-shadow: 0 1px 2px rgba(255, 91, 36, 0.2);
 }
 
 .wcpos-vipps-btn-secondary {
-	background-color: #5a31f4 !important;
+	background-color: var(--vipps-blue) !important;
 	color: #fff !important;
-	border-color: #5a31f4 !important;
+	box-shadow: 0 2px 4px rgba(90, 120, 255, 0.2);
 }
 
 .wcpos-vipps-btn-secondary:hover:not(:disabled) {
-	background-color: #4a28c9 !important;
+	background-color: var(--vipps-blue-hover) !important;
+	transform: translateY(-1px);
+	box-shadow: 0 4px 8px rgba(90, 120, 255, 0.25);
+}
+
+.wcpos-vipps-btn-secondary:active:not(:disabled) {
+	transform: translateY(0);
+	box-shadow: 0 1px 2px rgba(90, 120, 255, 0.2);
 }
 
 .wcpos-vipps-btn-primary:disabled,
 .wcpos-vipps-btn-secondary:disabled {
 	opacity: 0.5;
 	cursor: not-allowed;
+	transform: none !important;
+	box-shadow: none !important;
 }
 
-.wcpos-vipps-btn-danger {
-	background-color: #d63638 !important;
+/* ---- Cancel button (outlined) ---- */
+
+.wcpos-vipps-btn-cancel {
+	background: #fff !important;
+	color: var(--vipps-error) !important;
+	border: 2px solid var(--vipps-error) !important;
+	padding: 8px 20px !important;
+	border-radius: var(--vipps-radius) !important;
+	font-size: 14px !important;
+	font-weight: 600 !important;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.wcpos-vipps-btn-cancel:hover {
+	background: var(--vipps-error) !important;
 	color: #fff !important;
-	border-color: #d63638 !important;
 }
 
-.wcpos-vipps-btn-danger:hover {
-	background-color: #b32d2e !important;
-}
+/* ---- QR code display ---- */
 
 .wcpos-vipps-qr-display {
 	text-align: center;
-	margin: 20px 0;
+	margin: 16px 0;
 }
 
 .wcpos-vipps-qr-display img {
 	max-width: 250px;
 	height: auto;
-	border: 2px solid #eee;
-	border-radius: 8px;
-	padding: 10px;
+	border-radius: var(--vipps-radius);
+	padding: 16px;
 	background: #fff;
+	box-shadow: 0 2px 8px rgba(22, 18, 37, 0.08);
+	animation: wcpos-vipps-scale-in 0.2s ease;
 }
+
+/* ---- Status messages ---- */
 
 .wcpos-vipps-status {
 	padding: 12px 16px;
-	border-radius: 4px;
-	margin: 15px 0;
+	border-radius: var(--vipps-radius);
+	margin: 16px 0;
 	font-size: 14px;
+	border-left: 4px solid transparent;
+	animation: wcpos-vipps-fade-in 0.2s ease;
 }
 
 .wcpos-vipps-status-success {
 	background: #edfaef;
-	border: 1px solid #00a32a;
-	color: #00a32a;
+	border-left-color: var(--vipps-success);
+	color: #0d6e42;
 }
 
 .wcpos-vipps-status-error {
 	background: #fcf0f1;
-	border: 1px solid #d63638;
-	color: #d63638;
+	border-left-color: var(--vipps-error);
+	color: var(--vipps-error);
 }
 
 .wcpos-vipps-status-cancelled {
-	background: #fff3cd;
-	border: 1px solid #ffc107;
-	color: #856404;
+	background: #f5f4f8;
+	border-left-color: var(--vipps-caution);
+	color: #5c5874;
 }
 
 .wcpos-vipps-status-message {
-	background: #e7f3ff;
-	border: 1px solid #0073aa;
-	color: #0073aa;
+	background: #eef2ff;
+	border-left-color: var(--vipps-blue);
+	color: #3d55b2;
 }
+
+/* ---- Debug log panel ---- */
+
+.wcpos-vipps-log-section {
+	margin-top: 16px;
+}
+
+.wcpos-vipps-log-toggle {
+	background: none !important;
+	border: none !important;
+	padding: 4px 0 !important;
+	font-size: 12px !important;
+	color: var(--vipps-caution) !important;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	transition: color 0.2s ease;
+}
+
+.wcpos-vipps-log-toggle:hover {
+	color: var(--vipps-dark) !important;
+}
+
+.wcpos-vipps-log-toggle .chevron {
+	display: inline-block;
+	transition: transform 0.3s ease;
+	font-size: 10px;
+}
+
+.wcpos-vipps-log-toggle.open .chevron {
+	transform: rotate(90deg);
+}
+
+.wcpos-vipps-log-container {
+	max-height: 0;
+	overflow: hidden;
+	transition: max-height 0.3s ease;
+}
+
+.wcpos-vipps-log-container.open {
+	max-height: 200px;
+}
+
+.wcpos-vipps-log-container textarea {
+	width: 100%;
+	height: 200px;
+	margin-top: 8px;
+	padding: 10px;
+	background: #fff;
+	border: 1px solid #e0e0e0;
+	border-radius: var(--vipps-radius);
+	font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+	font-size: 11px;
+	line-height: 1.5;
+	color: var(--vipps-dark);
+	resize: vertical;
+	box-sizing: border-box;
+}
+
+.wcpos-vipps-log-container textarea:focus {
+	outline: none;
+	border-color: var(--vipps-caution);
+}
+
+/* ---- Animations ---- */
+
+@keyframes wcpos-vipps-fade-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes wcpos-vipps-scale-in {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+/* ---- Responsive ---- */
 
 @media (max-width: 600px) {
 	.wcpos-vipps-actions {
