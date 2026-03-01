@@ -63,6 +63,14 @@ class AjaxHandler {
 	}
 
 	/**
+	 * Build a success response that includes buffered log entries.
+	 */
+	private function success_with_logs( array $data, int $order_id ): void {
+		$data['log_entries'] = Logger::flush( $order_id );
+		wp_send_json_success( $data );
+	}
+
+	/**
 	 * Create a Vipps payment (QR or push).
 	 */
 	public function ajax_create_payment(): void {
@@ -104,11 +112,15 @@ class AjaxHandler {
 			);
 		}
 
-		$api    = $this->get_api();
+		$api = $this->get_api();
+		$api->set_order_id( $order->get_id() );
 		$result = $api->create_payment( $params );
 
 		if ( ! $result ) {
-			wp_send_json_error( array( 'message' => 'Failed to create Vipps payment.' ) );
+			Logger::log( 'Failed to create Vipps payment', 'ERROR', $order->get_id() );
+			$error_data = array( 'message' => 'Failed to create Vipps payment.' );
+			$error_data['log_entries'] = Logger::flush( $order->get_id() );
+			wp_send_json_error( $error_data );
 			return;
 		}
 
@@ -125,7 +137,8 @@ class AjaxHandler {
 			$response['qrUrl'] = $result['redirectUrl'];
 		}
 
-		wp_send_json_success( $response );
+		Logger::log( "Payment created — flow: {$flow}, ref: {$reference}", 'INFO', $order->get_id() );
+		$this->success_with_logs( $response, $order->get_id() );
 	}
 
 	/**
@@ -143,7 +156,8 @@ class AjaxHandler {
 			return;
 		}
 
-		$api    = $this->get_api();
+		$api = $this->get_api();
+		$api->set_order_id( $order->get_id() );
 		$result = $api->get_payment( $reference );
 
 		if ( ! $result ) {
@@ -155,7 +169,7 @@ class AjaxHandler {
 		$order->update_meta_data( '_wcpos_vipps_status', $state );
 		$order->save();
 
-		wp_send_json_success( array( 'state' => $state ) );
+		$this->success_with_logs( array( 'state' => $state ), $order->get_id() );
 	}
 
 	/**
@@ -171,6 +185,7 @@ class AjaxHandler {
 
 		if ( $reference && 'CREATED' === $order->get_meta( '_wcpos_vipps_status' ) ) {
 			$api = $this->get_api();
+			$api->set_order_id( $order->get_id() );
 			$api->cancel_payment( $reference );
 		}
 
@@ -178,6 +193,7 @@ class AjaxHandler {
 		$order->delete_meta_data( '_wcpos_vipps_reference' );
 		$order->save();
 
-		wp_send_json_success( array( 'message' => 'Payment cancelled.' ) );
+		Logger::log( 'Payment cancelled by cashier', 'INFO', $order->get_id() );
+		$this->success_with_logs( array( 'message' => 'Payment cancelled.' ), $order->get_id() );
 	}
 }
