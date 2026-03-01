@@ -328,8 +328,8 @@ class Gateway extends \WC_Payment_Gateway {
 
 		wp_enqueue_script(
 			'wcpos-vipps-payment',
-			WCPOS_VIPPS_PLUGIN_URL . 'assets/js/payment.js',
-			array( 'jquery' ),
+			WCPOS_VIPPS_PLUGIN_URL . 'assets/dist/payment.js',
+			array(),
 			WCPOS_VIPPS_VERSION,
 			true
 		);
@@ -351,6 +351,8 @@ class Gateway extends \WC_Payment_Gateway {
 				'phoneRequired'     => __( 'Please enter a phone number.', 'wcpos-vipps' ),
 				'showLog'           => __( 'Show Log', 'wcpos-vipps' ),
 				'hideLog'           => __( 'Hide Log', 'wcpos-vipps' ),
+				'phoneLabel'        => __( 'Phone number (optional)', 'wcpos-vipps' ),
+				'phonePlaceholder'  => __( 'e.g. 4712345678', 'wcpos-vipps' ),
 			),
 		) );
 	}
