@@ -11,6 +11,7 @@
 			$(document).on('click', '#wcpos-vipps-send-push', this.sendPush.bind(this));
 			$(document).on('click', '#wcpos-vipps-cancel', this.cancelPayment.bind(this));
 			$(document).on('input', '#wcpos-vipps-phone', this.togglePushButton.bind(this));
+			$(document).on('click', '#wcpos-vipps-log-toggle', this.toggleLog.bind(this));
 		},
 
 		togglePushButton: function () {
@@ -18,8 +19,66 @@
 			$('#wcpos-vipps-send-push').prop('disabled', !phone);
 		},
 
+		// ---- Log panel ----
+
+		toggleLog: function (e) {
+			e.preventDefault();
+			var $btn = $('#wcpos-vipps-log-toggle');
+			var $container = $('#wcpos-vipps-log-container');
+
+			$btn.toggleClass('open');
+			$container.toggleClass('open');
+
+			var isOpen = $btn.hasClass('open');
+			$btn.find('.label').text(
+				isOpen ? wcposVippsData.strings.hideLog : wcposVippsData.strings.showLog
+			);
+		},
+
+		appendLog: function (message) {
+			if (!wcposVippsData.debug) {
+				return;
+			}
+
+			var $log = $('#wcpos-vipps-log');
+			if (!$log.length) {
+				return;
+			}
+
+			var current = $log.val();
+			var prefix = new Date().toLocaleTimeString('en-GB', { hour12: false });
+			$log.val((current ? current + '\n' : '') + prefix + ' ' + message);
+
+			// Auto-scroll to bottom.
+			$log[0].scrollTop = $log[0].scrollHeight;
+		},
+
+		processLogEntries: function (response) {
+			if (!wcposVippsData.debug || !response || !response.data) {
+				return;
+			}
+
+			var entries = response.data.log_entries;
+			if (!entries || !entries.length) {
+				return;
+			}
+
+			for (var i = 0; i < entries.length; i++) {
+				var $log = $('#wcpos-vipps-log');
+				if (!$log.length) {
+					return;
+				}
+				var current = $log.val();
+				$log.val((current ? current + '\n' : '') + entries[i]);
+				$log[0].scrollTop = $log[0].scrollHeight;
+			}
+		},
+
+		// ---- Payment flows ----
+
 		generateQr: function (e) {
 			e.preventDefault();
+			this.appendLog('[CLIENT] Generating QR code...');
 			this.createPayment('qr');
 		},
 
@@ -29,9 +88,11 @@
 
 			if (!phone) {
 				this.showStatus(wcposVippsData.strings.phoneRequired, 'error');
+				this.appendLog('[CLIENT] Push failed — no phone number');
 				return;
 			}
 
+			this.appendLog('[CLIENT] Sending push to ' + phone + '...');
 			this.createPayment('push', phone);
 		},
 
@@ -51,25 +112,34 @@
 				phone: phone || ''
 			})
 			.done(function (response) {
+				self.processLogEntries(response);
+
 				if (response.success) {
 					if (flow === 'qr' && response.data.qrUrl) {
 						$('#wcpos-vipps-qr-image').attr('src', response.data.qrUrl);
 						$('#wcpos-vipps-qr-display').show();
+						self.appendLog('[CLIENT] QR code displayed');
 					}
 
 					self.showStatus(wcposVippsData.strings.waitingForPayment, 'message');
 					$('#wcpos-vipps-cancel').show();
+					self.appendLog('[CLIENT] Polling started (every 2s, max 5 min)');
 					self.startPolling();
 				} else {
-					self.showStatus(response.data.message || wcposVippsData.strings.paymentFailed, 'error');
+					var msg = response.data.message || wcposVippsData.strings.paymentFailed;
+					self.showStatus(msg, 'error');
+					self.appendLog('[CLIENT] Payment creation failed: ' + msg);
 					self.setLoading(false);
 				}
 			})
 			.fail(function () {
 				self.showStatus(wcposVippsData.strings.networkError, 'error');
+				self.appendLog('[CLIENT] Network error during payment creation');
 				self.setLoading(false);
 			});
 		},
+
+		// ---- Polling ----
 
 		startPolling: function () {
 			this.pollCount = 0;
@@ -90,6 +160,7 @@
 			if (this.pollCount >= this.maxPolls) {
 				this.stopPolling();
 				this.showStatus(wcposVippsData.strings.paymentExpired, 'error');
+				this.appendLog('[CLIENT] Polling timed out after 5 minutes');
 				this.resetUI();
 				return;
 			}
@@ -100,6 +171,8 @@
 				token: wcposVippsData.token
 			})
 			.done(function (response) {
+				self.processLogEntries(response);
+
 				if (!response.success) {
 					return;
 				}
@@ -109,33 +182,49 @@
 				if (state === 'AUTHORIZED') {
 					self.stopPolling();
 					self.showStatus(wcposVippsData.strings.paymentSuccess, 'success');
+					self.appendLog('[CLIENT] Payment authorized — submitting order');
 					self.submitForm();
 				} else if (state === 'ABORTED' || state === 'TERMINATED') {
 					self.stopPolling();
 					self.showStatus(wcposVippsData.strings.paymentCancelled, 'cancelled');
+					self.appendLog('[CLIENT] Payment ' + state.toLowerCase() + ' by customer');
 					self.resetUI();
 				} else if (state === 'EXPIRED') {
 					self.stopPolling();
 					self.showStatus(wcposVippsData.strings.paymentExpired, 'error');
+					self.appendLog('[CLIENT] Payment expired');
 					self.resetUI();
 				}
 				// CREATED = still waiting, continue polling
+			})
+			.fail(function () {
+				self.appendLog('[CLIENT] Network error during status check');
 			});
 		},
+
+		// ---- Cancel ----
 
 		cancelPayment: function (e) {
 			e.preventDefault();
 			this.stopPolling();
+			this.appendLog('[CLIENT] Cancelling payment...');
+
+			var self = this;
 
 			$.post(wcposVippsData.ajaxUrl, {
 				action: 'wcpos_vipps_cancel_payment',
 				order_id: wcposVippsData.orderId,
 				token: wcposVippsData.token
+			})
+			.done(function (response) {
+				self.processLogEntries(response);
 			});
 
 			this.showStatus(wcposVippsData.strings.paymentCancelled, 'cancelled');
 			this.resetUI();
 		},
+
+		// ---- UI helpers ----
 
 		submitForm: function () {
 			var $form = $('form#order_review, form.checkout');
