@@ -10,7 +10,7 @@ class Gateway extends \WC_Payment_Gateway {
 		$this->id                 = 'wcpos_vipps';
 		$this->icon               = '';
 		$this->has_fields         = true;
-		$this->method_title       = __( 'Vipps MobilePay', 'wcpos-vipps' );
+		$this->method_title       = __( 'WCPOS Vipps MobilePay', 'wcpos-vipps' );
 		$this->method_description = __( 'Accept payments via Vipps MobilePay QR codes and push notifications.', 'wcpos-vipps' );
 		$this->supports           = array( 'products', 'refunds' );
 
@@ -30,7 +30,7 @@ class Gateway extends \WC_Payment_Gateway {
 			'enabled'     => array(
 				'title'   => __( 'Enable/Disable', 'wcpos-vipps' ),
 				'type'    => 'checkbox',
-				'label'   => __( 'Enable Vipps MobilePay', 'wcpos-vipps' ),
+				'label'   => __( 'Enable WCPOS Vipps MobilePay', 'wcpos-vipps' ),
 				'default' => 'no',
 			),
 			'title'       => array(
