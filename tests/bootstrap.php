@@ -25,6 +25,9 @@ if ( ! defined( 'WCPOS_VIPPS_PLUGIN_URL' ) ) {
 if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
 	define( 'HOUR_IN_SECONDS', 3600 );
 }
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
+}
 
 // Minimal WC_Payment_Gateway stub so Gateway can extend it.
 if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
