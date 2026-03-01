@@ -4,6 +4,7 @@ import { PhoneInput } from '../components/PhoneInput';
 import { QrDisplay } from '../components/QrDisplay';
 import { ActionButtons } from '../components/ActionButtons';
 import { StatusMessage } from '../components/StatusMessage';
+import { LogPanel } from '../components/LogPanel';
 
 const strings: Record<string, string> = {
   phoneLabel: 'Phone number (optional)',
@@ -15,6 +16,8 @@ const strings: Record<string, string> = {
   waitingForPayment: 'Waiting for payment...',
   paymentSuccess: 'Payment successful!',
   paymentCancelled: 'Payment cancelled.',
+  showLog: 'Show Log',
+  hideLog: 'Hide Log',
 };
 
 describe('PhoneInput', () => {
@@ -133,5 +136,51 @@ describe('StatusMessage', () => {
     render(<StatusMessage state="failed" error="Something went wrong" strings={strings} />);
     expect(screen.getByText('Something went wrong')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveClass('wcpos-vipps-status-error');
+  });
+});
+
+describe('LogPanel', () => {
+  it('renders Show Log button', () => {
+    render(<LogPanel entries={[]} strings={strings} />);
+    expect(screen.getByText('Show Log')).toBeInTheDocument();
+  });
+
+  it('starts with log container collapsed', () => {
+    render(<LogPanel entries={[]} strings={strings} />);
+    const container = document.querySelector('.wcpos-vipps-log-container');
+    expect(container).not.toHaveClass('open');
+  });
+
+  it('opens log container and changes text on click', () => {
+    render(<LogPanel entries={['line 1']} strings={strings} />);
+
+    fireEvent.click(screen.getByText('Show Log'));
+
+    expect(screen.getByText('Hide Log')).toBeInTheDocument();
+    expect(screen.queryByText('Show Log')).not.toBeInTheDocument();
+    expect(document.querySelector('.wcpos-vipps-log-container')).toHaveClass('open');
+    expect(document.querySelector('.wcpos-vipps-log-toggle')).toHaveClass('open');
+  });
+
+  it('closes log container on second click', () => {
+    render(<LogPanel entries={['line 1']} strings={strings} />);
+
+    fireEvent.click(screen.getByText('Show Log'));
+    fireEvent.click(screen.getByText('Hide Log'));
+
+    expect(screen.getByText('Show Log')).toBeInTheDocument();
+    expect(document.querySelector('.wcpos-vipps-log-container')).not.toHaveClass('open');
+  });
+
+  it('displays log entries in textarea', () => {
+    render(<LogPanel entries={['entry one', 'entry two']} strings={strings} />);
+    const textarea = document.querySelector('textarea');
+    expect(textarea).toHaveValue('entry one\nentry two');
+  });
+
+  it('textarea is readonly', () => {
+    render(<LogPanel entries={['test']} strings={strings} />);
+    const textarea = document.querySelector('textarea');
+    expect(textarea).toHaveAttribute('readonly');
   });
 });

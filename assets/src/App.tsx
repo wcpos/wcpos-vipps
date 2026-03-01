@@ -4,6 +4,7 @@ import { PhoneInput } from './components/PhoneInput';
 import { QrDisplay } from './components/QrDisplay';
 import { ActionButtons } from './components/ActionButtons';
 import { StatusMessage } from './components/StatusMessage';
+import { LogPanel } from './components/LogPanel';
 import type { VippsConfig } from './types';
 
 interface AppProps {
@@ -13,10 +14,11 @@ interface AppProps {
 export function App({ config }: AppProps) {
   const [phone, setPhone] = useState('');
 
-  const { state, qrUrl, error, createQr, sendPush, cancel } = useVippsPayment({
+  const { state, qrUrl, error, logEntries, createQr, sendPush, cancel } = useVippsPayment({
     ajaxUrl: config.ajaxUrl,
     orderId: config.orderId,
     token: config.token,
+    debug: config.debug,
   });
 
   // Auto-submit the WC form when payment is authorized.
@@ -39,7 +41,7 @@ export function App({ config }: AppProps) {
   }, [state]);
 
   return (
-    <div id="wcpos-vipps-payment-interface">
+    <>
       <PhoneInput
         value={phone}
         onChange={setPhone}
@@ -56,6 +58,7 @@ export function App({ config }: AppProps) {
       />
       <QrDisplay qrUrl={qrUrl} strings={config.strings} />
       <StatusMessage state={state} error={error} strings={config.strings} />
-    </div>
+      {config.debug && <LogPanel entries={logEntries} strings={config.strings} />}
+    </>
   );
 }
