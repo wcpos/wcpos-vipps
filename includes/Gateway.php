@@ -186,6 +186,8 @@ class Gateway extends \WC_Payment_Gateway {
 			return;
 		}
 
+		$debug = 'yes' === $this->get_option( 'debug' );
+
 		?>
 		<div id="wcpos-vipps-payment-interface">
 			<div class="wcpos-vipps-phone-section">
@@ -209,9 +211,21 @@ class Gateway extends \WC_Payment_Gateway {
 
 			<div id="wcpos-vipps-status" class="wcpos-vipps-status" style="display:none;"></div>
 
-			<button type="button" id="wcpos-vipps-cancel" class="button wcpos-vipps-btn-danger" style="display:none;">
+			<button type="button" id="wcpos-vipps-cancel" class="button wcpos-vipps-btn-cancel" style="display:none;">
 				<?php esc_html_e( 'Cancel Payment', 'wcpos-vipps' ); ?>
 			</button>
+
+			<?php if ( $debug ) : ?>
+			<div class="wcpos-vipps-log-section">
+				<button type="button" id="wcpos-vipps-log-toggle" class="wcpos-vipps-log-toggle">
+					<span class="chevron">&#9654;</span>
+					<span class="label"><?php esc_html_e( 'Show Log', 'wcpos-vipps' ); ?></span>
+				</button>
+				<div id="wcpos-vipps-log-container" class="wcpos-vipps-log-container">
+					<textarea id="wcpos-vipps-log" readonly></textarea>
+				</div>
+			</div>
+			<?php endif; ?>
 		</div>
 		<noscript><?php esc_html_e( 'JavaScript is required for Vipps MobilePay payments.', 'wcpos-vipps' ); ?></noscript>
 		<?php
@@ -324,6 +338,7 @@ class Gateway extends \WC_Payment_Gateway {
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 			'orderId' => $order_id,
 			'token'   => AjaxHandler::generate_token( $order_id ),
+			'debug'   => 'yes' === $this->get_option( 'debug' ),
 			'strings' => array(
 				'generatingQr'      => __( 'Generating QR code...', 'wcpos-vipps' ),
 				'sendingPush'       => __( 'Sending payment request...', 'wcpos-vipps' ),
@@ -334,6 +349,8 @@ class Gateway extends \WC_Payment_Gateway {
 				'paymentExpired'    => __( 'Payment expired. Please try again.', 'wcpos-vipps' ),
 				'networkError'      => __( 'Network error. Please check your connection.', 'wcpos-vipps' ),
 				'phoneRequired'     => __( 'Please enter a phone number.', 'wcpos-vipps' ),
+				'showLog'           => __( 'Show Log', 'wcpos-vipps' ),
+				'hideLog'           => __( 'Hide Log', 'wcpos-vipps' ),
 			),
 		) );
 	}
