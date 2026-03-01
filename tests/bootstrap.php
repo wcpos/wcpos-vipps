@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', '/tmp/wordpress/' );
 }
 if ( ! defined( 'WCPOS_VIPPS_VERSION' ) ) {
-	define( 'WCPOS_VIPPS_VERSION', '0.1.0' );
+	define( 'WCPOS_VIPPS_VERSION', '0.2.0' );
 }
 if ( ! defined( 'WCPOS_VIPPS_PLUGIN_DIR' ) ) {
 	define( 'WCPOS_VIPPS_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
