@@ -39,9 +39,13 @@ class ApiTest extends TestCase {
 	private function stub_logger(): void {
 		$mock_logger = \Mockery::mock();
 		$mock_logger->shouldReceive( 'info' )->zeroOrMoreTimes();
+		$mock_logger->shouldReceive( 'error' )->zeroOrMoreTimes();
 
 		Functions\stubs( array(
-			'apply_filters'  => true,
+			'get_option'     => function () {
+				return array( 'debug' => 'yes' );
+			},
+			'current_time'   => '12:00:00',
 			'wc_get_logger'  => $mock_logger,
 			'wp_json_encode' => 'json_encode',
 		) );

@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	define( 'ABSPATH', '/tmp/wordpress/' );
 }
 if ( ! defined( 'WCPOS_VIPPS_VERSION' ) ) {
-	define( 'WCPOS_VIPPS_VERSION', '0.1.0' );
+	define( 'WCPOS_VIPPS_VERSION', '0.2.0' );
 }
 if ( ! defined( 'WCPOS_VIPPS_PLUGIN_DIR' ) ) {
 	define( 'WCPOS_VIPPS_PLUGIN_DIR', dirname( __DIR__ ) . '/' );
@@ -24,6 +24,9 @@ if ( ! defined( 'WCPOS_VIPPS_PLUGIN_URL' ) ) {
 }
 if ( ! defined( 'HOUR_IN_SECONDS' ) ) {
 	define( 'HOUR_IN_SECONDS', 3600 );
+}
+if ( ! defined( 'MINUTE_IN_SECONDS' ) ) {
+	define( 'MINUTE_IN_SECONDS', 60 );
 }
 
 // Minimal WC_Payment_Gateway stub so Gateway can extend it.

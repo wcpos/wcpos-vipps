@@ -10,6 +10,11 @@ class Api {
 	private string $merchant_serial_number;
 	private string $base_url;
 	private ?string $access_token = null;
+	private int $order_id = 0;
+
+	public function set_order_id( int $order_id ): void {
+		$this->order_id = $order_id;
+	}
 
 	public function __construct(
 		string $client_id,
@@ -48,7 +53,7 @@ class Api {
 		) );
 
 		if ( is_wp_error( $response ) ) {
-			Logger::log( 'Access token error: ' . $response->get_error_message() );
+			Logger::log( 'Access token request failed: ' . $response->get_error_message(), 'ERROR', $this->order_id );
 			return null;
 		}
 
@@ -56,7 +61,7 @@ class Api {
 		$body   = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		if ( 200 !== $status || empty( $body['access_token'] ) ) {
-			Logger::log( 'Access token failed (HTTP ' . $status . '): ' . wp_remote_retrieve_body( $response ) );
+			Logger::log( 'Access token failed (HTTP ' . $status . ')', 'ERROR', $this->order_id );
 			return null;
 		}
 
@@ -119,6 +124,7 @@ class Api {
 	 */
 	private function request( string $method, string $endpoint, ?array $data = null ): ?array {
 		if ( ! $this->access_token && ! $this->get_access_token() ) {
+			Logger::log( "Auth failed — no access token for {$method} {$endpoint}", 'ERROR', $this->order_id );
 			return null;
 		}
 
@@ -141,11 +147,14 @@ class Api {
 			$args['body'] = wp_json_encode( $data );
 		}
 
-		$url      = $this->base_url . $endpoint;
+		$url = $this->base_url . $endpoint;
+
+		Logger::log( "{$method} {$endpoint}", 'DEBUG', $this->order_id );
+
 		$response = wp_remote_request( $url, $args );
 
 		if ( is_wp_error( $response ) ) {
-			Logger::log( "API error [{$method} {$endpoint}]: " . $response->get_error_message() );
+			Logger::log( "Request failed [{$method} {$endpoint}]: " . $response->get_error_message(), 'ERROR', $this->order_id );
 			return null;
 		}
 
@@ -153,9 +162,17 @@ class Api {
 		$body   = json_decode( wp_remote_retrieve_body( $response ), true );
 
 		if ( $status >= 400 ) {
-			Logger::log( "API error [{$method} {$endpoint}] HTTP {$status}: " . wp_remote_retrieve_body( $response ) );
+			$error_detail = '';
+			if ( ! empty( $body['title'] ) ) {
+				$error_detail = $body['title'];
+			} elseif ( ! empty( $body['message'] ) ) {
+				$error_detail = $body['message'];
+			}
+			Logger::log( "{$method} {$endpoint} — HTTP {$status}: {$error_detail}", 'ERROR', $this->order_id );
 			return null;
 		}
+
+		Logger::log( "{$method} {$endpoint} — HTTP {$status} OK", 'INFO', $this->order_id );
 
 		return $body ?: array();
 	}

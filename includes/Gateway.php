@@ -10,7 +10,7 @@ class Gateway extends \WC_Payment_Gateway {
 		$this->id                 = 'wcpos_vipps';
 		$this->icon               = '';
 		$this->has_fields         = true;
-		$this->method_title       = __( 'Vipps MobilePay', 'wcpos-vipps' );
+		$this->method_title       = __( 'WCPOS Vipps MobilePay', 'wcpos-vipps' );
 		$this->method_description = __( 'Accept payments via Vipps MobilePay QR codes and push notifications.', 'wcpos-vipps' );
 		$this->supports           = array( 'products', 'refunds' );
 
@@ -30,7 +30,7 @@ class Gateway extends \WC_Payment_Gateway {
 			'enabled'     => array(
 				'title'   => __( 'Enable/Disable', 'wcpos-vipps' ),
 				'type'    => 'checkbox',
-				'label'   => __( 'Enable Vipps MobilePay', 'wcpos-vipps' ),
+				'label'   => __( 'Enable WCPOS Vipps MobilePay', 'wcpos-vipps' ),
 				'default' => 'no',
 			),
 			'title'       => array(
@@ -65,6 +65,13 @@ class Gateway extends \WC_Payment_Gateway {
 				'type'    => 'checkbox',
 				'label'   => __( 'Automatically capture payments after authorization', 'wcpos-vipps' ),
 				'default' => 'yes',
+			),
+			'debug' => array(
+				'title'   => __( 'Debug Log', 'wcpos-vipps' ),
+				'type'    => 'checkbox',
+				'label'   => __( 'Enable debug logging', 'wcpos-vipps' ),
+				'description' => __( 'Log payment events to WooCommerce > Status > Logs and show a live log panel on the checkout screen.', 'wcpos-vipps' ),
+				'default' => 'no',
 			),
 			'test_mode' => array(
 				'title'   => __( 'Test Mode', 'wcpos-vipps' ),
@@ -179,8 +186,47 @@ class Gateway extends \WC_Payment_Gateway {
 			return;
 		}
 
+		$debug = 'yes' === $this->get_option( 'debug' );
+
 		?>
-		<div id="wcpos-vipps-root"></div>
+		<div id="wcpos-vipps-payment-interface">
+			<div class="wcpos-vipps-phone-section">
+				<label for="wcpos-vipps-phone"><?php esc_html_e( 'Phone number (optional)', 'wcpos-vipps' ); ?></label>
+				<input type="tel" id="wcpos-vipps-phone" name="wcpos_vipps_phone"
+					placeholder="<?php esc_attr_e( 'e.g. 4712345678', 'wcpos-vipps' ); ?>" />
+			</div>
+
+			<div class="wcpos-vipps-actions">
+				<button type="button" id="wcpos-vipps-generate-qr" class="button wcpos-vipps-btn-primary">
+					<?php esc_html_e( 'Generate QR Code', 'wcpos-vipps' ); ?>
+				</button>
+				<button type="button" id="wcpos-vipps-send-push" class="button wcpos-vipps-btn-secondary" disabled>
+					<?php esc_html_e( 'Send to Phone', 'wcpos-vipps' ); ?>
+				</button>
+			</div>
+
+			<div id="wcpos-vipps-qr-display" class="wcpos-vipps-qr-display" style="display:none;">
+				<img id="wcpos-vipps-qr-image" src="" alt="<?php esc_attr_e( 'Vipps QR Code', 'wcpos-vipps' ); ?>" />
+			</div>
+
+			<div id="wcpos-vipps-status" class="wcpos-vipps-status" style="display:none;"></div>
+
+			<button type="button" id="wcpos-vipps-cancel" class="button wcpos-vipps-btn-cancel" style="display:none;">
+				<?php esc_html_e( 'Cancel Payment', 'wcpos-vipps' ); ?>
+			</button>
+
+			<?php if ( $debug ) : ?>
+			<div class="wcpos-vipps-log-section">
+				<button type="button" id="wcpos-vipps-log-toggle" class="wcpos-vipps-log-toggle">
+					<span class="chevron">&#9654;</span>
+					<span class="label"><?php esc_html_e( 'Show Log', 'wcpos-vipps' ); ?></span>
+				</button>
+				<div id="wcpos-vipps-log-container" class="wcpos-vipps-log-container">
+					<textarea id="wcpos-vipps-log" readonly></textarea>
+				</div>
+			</div>
+			<?php endif; ?>
+		</div>
 		<noscript><?php esc_html_e( 'JavaScript is required for Vipps MobilePay payments.', 'wcpos-vipps' ); ?></noscript>
 		<?php
 	}
@@ -292,6 +338,7 @@ class Gateway extends \WC_Payment_Gateway {
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 			'orderId' => $order_id,
 			'token'   => AjaxHandler::generate_token( $order_id ),
+			'debug'   => 'yes' === $this->get_option( 'debug' ),
 			'strings' => array(
 				'generatingQr'      => __( 'Generating QR code...', 'wcpos-vipps' ),
 				'sendingPush'       => __( 'Sending payment request...', 'wcpos-vipps' ),
@@ -302,6 +349,8 @@ class Gateway extends \WC_Payment_Gateway {
 				'paymentExpired'    => __( 'Payment expired. Please try again.', 'wcpos-vipps' ),
 				'networkError'      => __( 'Network error. Please check your connection.', 'wcpos-vipps' ),
 				'phoneRequired'     => __( 'Please enter a phone number.', 'wcpos-vipps' ),
+				'showLog'           => __( 'Show Log', 'wcpos-vipps' ),
+				'hideLog'           => __( 'Hide Log', 'wcpos-vipps' ),
 				'phoneLabel'        => __( 'Phone number (optional)', 'wcpos-vipps' ),
 				'phonePlaceholder'  => __( 'e.g. 4712345678', 'wcpos-vipps' ),
 			),

@@ -104,6 +104,7 @@ class GatewayTest extends TestCase {
 			'client_secret',
 			'subscription_key',
 			'auto_capture',
+			'debug',
 			'test_mode',
 			'test_merchant_serial_number',
 			'test_client_id',
@@ -115,7 +116,7 @@ class GatewayTest extends TestCase {
 			$this->assertArrayHasKey( $key, $gateway->form_fields, "Missing form field: {$key}" );
 		}
 
-		$this->assertCount( 13, $gateway->form_fields );
+		$this->assertCount( 14, $gateway->form_fields );
 	}
 
 	// ---------------------------------------------------------------
