@@ -119,8 +119,8 @@ class AjaxHandler {
 			}
 
 			$msn           = $this->get_msn();
-			$transient_key = 'wcpos_vipps_push_mode_' . $msn;
-			$cached_mode   = get_transient( $transient_key );
+			$transient_key = $msn ? 'wcpos_vipps_push_mode_' . $msn : '';
+			$cached_mode   = $transient_key ? get_transient( $transient_key ) : false;
 			$use_redirect  = ( 'redirect' === $cached_mode );
 
 			if ( $use_redirect ) {
@@ -158,7 +158,9 @@ class AjaxHandler {
 				);
 
 			if ( $is_push_not_allowed ) {
-				set_transient( $transient_key, 'redirect', DAY_IN_SECONDS );
+				if ( $transient_key ) {
+					set_transient( $transient_key, 'redirect', DAY_IN_SECONDS );
+				}
 
 				Logger::log( 'PUSH_MESSAGE not supported — switching to WEB_REDIRECT for future requests', 'INFO', $order->get_id() );
 
@@ -179,7 +181,7 @@ class AjaxHandler {
 		}
 
 		// Cache push as supported if it worked.
-		if ( 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) ) {
+		if ( 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) && ! empty( $transient_key ) ) {
 			set_transient( $transient_key, 'push', DAY_IN_SECONDS );
 		}
 

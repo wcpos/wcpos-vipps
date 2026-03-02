@@ -167,16 +167,22 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug, phoneFlowMode 
         }
 
         // Handle redirect flow: set the pre-opened tab URL.
-        if (response.data.flow === 'redirect' && response.data.redirectUrl) {
-          if (tab) {
-            tab.location.href = response.data.redirectUrl;
-            appendLog('[CLIENT] Opened Vipps landing page in new tab');
-          } else {
+        if (response.data.flow === 'redirect') {
+          if (!response.data.redirectUrl) {
+            tab?.close();
+            setState('failed');
+            setError('Could not open Vipps page. Please try again.');
+            appendLog('[CLIENT] Redirect flow returned without redirect URL');
+            return;
+          }
+          if (!tab) {
             setState('failed');
             setError('Popup blocked. Please allow popups and try again.');
             appendLog('[CLIENT] Popup blocked — cannot open redirect tab');
             return;
           }
+          tab.location.href = response.data.redirectUrl;
+          appendLog('[CLIENT] Opened Vipps landing page in new tab');
         }
 
         if (flow === 'qr' && response.data.qrUrl) {
