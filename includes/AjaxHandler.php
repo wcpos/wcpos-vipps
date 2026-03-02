@@ -185,10 +185,6 @@ class AjaxHandler {
 			set_transient( $transient_key, 'push', DAY_IN_SECONDS );
 		}
 
-		$order->update_meta_data( '_wcpos_vipps_reference', $reference );
-		$order->update_meta_data( '_wcpos_vipps_status', 'CREATED' );
-		$order->save();
-
 		$response = array(
 			'reference' => $reference,
 			'flow'      => ( 'WEB_REDIRECT' === $params['userFlow'] ) ? 'redirect' : $flow,
@@ -198,6 +194,7 @@ class AjaxHandler {
 			$response['qrUrl'] = $result['redirectUrl'];
 		}
 
+		// Validate redirectUrl before persisting order state.
 		if ( 'WEB_REDIRECT' === ( $params['userFlow'] ?? '' ) ) {
 			if ( empty( $result['redirectUrl'] ) ) {
 				Logger::log( 'WEB_REDIRECT payment missing redirectUrl', 'ERROR', $order->get_id() );
@@ -208,6 +205,10 @@ class AjaxHandler {
 			}
 			$response['redirectUrl'] = $result['redirectUrl'];
 		}
+
+		$order->update_meta_data( '_wcpos_vipps_reference', $reference );
+		$order->update_meta_data( '_wcpos_vipps_status', 'CREATED' );
+		$order->save();
 
 		Logger::log( "Payment created — flow: {$flow}, userFlow: {$params['userFlow']}, ref: {$reference}", 'INFO', $order->get_id() );
 		$this->success_with_logs( $response, $order->get_id() );
