@@ -198,7 +198,14 @@ class AjaxHandler {
 			$response['qrUrl'] = $result['redirectUrl'];
 		}
 
-		if ( 'WEB_REDIRECT' === $params['userFlow'] && ! empty( $result['redirectUrl'] ) ) {
+		if ( 'WEB_REDIRECT' === ( $params['userFlow'] ?? '' ) ) {
+			if ( empty( $result['redirectUrl'] ) ) {
+				Logger::log( 'WEB_REDIRECT payment missing redirectUrl', 'ERROR', $order->get_id() );
+				$error_data                = array( 'message' => 'Failed to create Vipps redirect payment.' );
+				$error_data['log_entries'] = Logger::flush( $order->get_id() );
+				wp_send_json_error( $error_data );
+				return;
+			}
 			$response['redirectUrl'] = $result['redirectUrl'];
 		}
 
