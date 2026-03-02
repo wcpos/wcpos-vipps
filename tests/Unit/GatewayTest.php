@@ -355,6 +355,7 @@ class GatewayTest extends TestCase {
 		) );
 
 		$method = new \ReflectionMethod( Gateway::class, 'get_phone_flow_mode' );
+		$method->setAccessible( true );
 		$result = $method->invoke( $gateway );
 		$this->assertSame( 'redirect', $result );
 	}
@@ -369,6 +370,7 @@ class GatewayTest extends TestCase {
 		) );
 
 		$method = new \ReflectionMethod( Gateway::class, 'get_phone_flow_mode' );
+		$method->setAccessible( true );
 		$result = $method->invoke( $gateway );
 		$this->assertSame( 'push', $result );
 	}

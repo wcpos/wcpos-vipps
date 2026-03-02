@@ -284,7 +284,11 @@ class Gateway extends \WC_Payment_Gateway {
 	 * Clear the push notice dismissal when settings are saved (MSN may have changed).
 	 */
 	public function clear_push_notice_dismissal(): void {
-		delete_option( 'wcpos_vipps_push_notice_dismissed' );
+		$prefix = 'yes' === $this->get_option( 'test_mode' ) ? 'test_' : '';
+		$msn    = $this->get_option( $prefix . 'merchant_serial_number' );
+		if ( $msn ) {
+			delete_option( 'wcpos_vipps_push_notice_dismissed_' . md5( $msn ) );
+		}
 	}
 
 	/**

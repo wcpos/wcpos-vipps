@@ -55,7 +55,7 @@ class AdminNoticeTest extends TestCase {
 			->with( 'wcpos_vipps_push_mode_msn123' )
 			->andReturn( 'redirect' );
 		Functions\expect( 'get_option' )
-			->with( 'wcpos_vipps_push_notice_dismissed' )
+			->with( 'wcpos_vipps_push_notice_dismissed_' . md5( 'msn123' ) )
 			->andReturn( true );
 
 		$this->assertFalse( AdminNotice::should_show( 'msn123' ) );
@@ -66,7 +66,7 @@ class AdminNoticeTest extends TestCase {
 			->with( 'wcpos_vipps_push_mode_msn123' )
 			->andReturn( 'redirect' );
 		Functions\expect( 'get_option' )
-			->with( 'wcpos_vipps_push_notice_dismissed' )
+			->with( 'wcpos_vipps_push_notice_dismissed_' . md5( 'msn123' ) )
 			->andReturn( false );
 
 		$this->assertTrue( AdminNotice::should_show( 'msn123' ) );

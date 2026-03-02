@@ -136,6 +136,12 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug, phoneFlowMode 
     if (flow === 'push' && currentFlowMode === 'redirect') {
       tab = window.open('about:blank', '_blank');
       redirectTabRef.current = tab;
+      if (!tab) {
+        setState('failed');
+        setError('Popup blocked. Please allow popups and try again.');
+        appendLog('[CLIENT] Popup blocked — cannot open redirect tab');
+        return;
+      }
     }
 
     appendLog(`[CLIENT] ${flow === 'qr' ? 'Generating QR code' : `Sending push to ${phone}`}...`);
@@ -165,6 +171,11 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug, phoneFlowMode 
           if (tab) {
             tab.location.href = response.data.redirectUrl;
             appendLog('[CLIENT] Opened Vipps landing page in new tab');
+          } else {
+            setState('failed');
+            setError('Popup blocked. Please allow popups and try again.');
+            appendLog('[CLIENT] Popup blocked — cannot open redirect tab');
+            return;
           }
         }
 

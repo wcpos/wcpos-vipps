@@ -128,12 +128,12 @@ class Api {
 	 * Make an authenticated API request.
 	 */
 	private function request( string $method, string $endpoint, ?array $data = null ): ?array {
+		$this->last_error_title = null;
+
 		if ( ! $this->access_token && ! $this->get_access_token() ) {
 			Logger::log( "Auth failed — no access token for {$method} {$endpoint}", 'ERROR', $this->order_id );
 			return null;
 		}
-
-		$this->last_error_title = null;
 
 		$args = array(
 			'method'  => $method,

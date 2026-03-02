@@ -60,7 +60,7 @@ If the official [Checkout with Vipps MobilePay](https://wordpress.org/plugins/wo
 
 ### POS Checkout (requires Pro)
 
-This gateway is designed to work inside the [WooCommerce POS](https://wcpos.com) checkout. The payment interface renders on the order-pay page — the same page the POS loads for payment processing. No redirects, no popups, no external windows.
+This gateway is designed to work inside the [WooCommerce POS](https://wcpos.com) checkout. The payment interface renders on the order-pay page — the same page the POS loads for payment processing. With direct push enabled, the entire flow stays in-page with no external windows. If using the landing page fallback, a single browser tab opens for the customer (see [Enabling Direct Push](#enabling-direct-push)).
 
 1. Enable the gateway in `WP Admin > WooCommerce POS > Settings > Checkout`
 2. You don't need to enable it in WooCommerce Payments settings for POS-only use

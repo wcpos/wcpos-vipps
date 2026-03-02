@@ -142,23 +142,31 @@ class AjaxHandler {
 		$api->set_order_id( $order->get_id() );
 		$result = $api->create_payment( $params );
 
-		$mode_changed = false;
-
-		// If PUSH_MESSAGE failed with "not allowed", fall back to WEB_REDIRECT.
+		// If PUSH_MESSAGE failed with a "not allowed" error, cache redirect mode
+		// and signal the frontend to retry — do NOT create a wasted payment here.
 		if ( ! $result && 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) ) {
 			$error_title = $api->get_last_error_title();
 
-			if ( $error_title && false !== strpos( $error_title, 'PUSH_MESSAGE' ) ) {
+			$is_push_not_allowed =
+				$error_title &&
+				false !== stripos( $error_title, 'PUSH_MESSAGE' ) &&
+				(
+					false !== stripos( $error_title, 'not allowed' ) ||
+					false !== stripos( $error_title, 'not enabled' ) ||
+					false !== stripos( $error_title, 'not permitted' ) ||
+					false !== stripos( $error_title, 'disabled' )
+				);
+
+			if ( $is_push_not_allowed ) {
 				set_transient( $transient_key, 'redirect', DAY_IN_SECONDS );
 
-				Logger::log( 'PUSH_MESSAGE not supported — retrying with WEB_REDIRECT', 'INFO', $order->get_id() );
+				Logger::log( 'PUSH_MESSAGE not supported — switching to WEB_REDIRECT for future requests', 'INFO', $order->get_id() );
 
-				$reference           = 'wcpos-' . $order->get_id() . '-' . time();
-				$params['reference'] = $reference;
-				$params['userFlow']  = 'WEB_REDIRECT';
-
-				$result       = $api->create_payment( $params );
-				$mode_changed = true;
+				$this->success_with_logs( array(
+					'modeChanged' => true,
+					'flow'        => 'redirect',
+				), $order->get_id() );
+				return;
 			}
 		}
 
@@ -171,7 +179,7 @@ class AjaxHandler {
 		}
 
 		// Cache push as supported if it worked.
-		if ( 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) && ! $mode_changed ) {
+		if ( 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) ) {
 			set_transient( $transient_key, 'push', DAY_IN_SECONDS );
 		}
 
@@ -190,10 +198,6 @@ class AjaxHandler {
 
 		if ( 'WEB_REDIRECT' === $params['userFlow'] && ! empty( $result['redirectUrl'] ) ) {
 			$response['redirectUrl'] = $result['redirectUrl'];
-		}
-
-		if ( $mode_changed ) {
-			$response['modeChanged'] = true;
 		}
 
 		Logger::log( "Payment created — flow: {$flow}, userFlow: {$params['userFlow']}, ref: {$reference}", 'INFO', $order->get_id() );
