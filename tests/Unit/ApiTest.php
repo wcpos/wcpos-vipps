@@ -454,6 +454,28 @@ class ApiTest extends TestCase {
 		$this->assertNull( $result );
 	}
 
+	public function test_get_last_error_title_returns_null_initially(): void {
+		$api = new Api( 'cid', 'csec', 'skey', 'msn', true );
+		$this->assertNull( $api->get_last_error_title() );
+	}
+
+	public function test_get_last_error_title_returns_error_after_failed_request(): void {
+		$encoded_body = json_encode( array( 'title' => 'PUSH_MESSAGE not allowed' ) );
+
+		Functions\expect( 'get_transient' )->andReturn( 'fake-token' );
+		Functions\expect( 'wp_generate_uuid4' )->andReturn( 'uuid-1' );
+		Functions\expect( 'wp_remote_request' )->once()->andReturn( 'response' );
+		Functions\expect( 'is_wp_error' )->once()->andReturn( false );
+		Functions\expect( 'wp_remote_retrieve_response_code' )->once()->andReturn( 400 );
+		Functions\expect( 'wp_remote_retrieve_body' )->once()->andReturn( $encoded_body );
+
+		$api = new Api( 'cid', 'csec', 'skey', 'msn', true );
+		$result = $api->create_payment( array( 'userFlow' => 'PUSH_MESSAGE' ) );
+
+		$this->assertNull( $result );
+		$this->assertSame( 'PUSH_MESSAGE not allowed', $api->get_last_error_title() );
+	}
+
 	public function test_request_includes_correct_auth_headers(): void {
 		$api = $this->api_with_token();
 

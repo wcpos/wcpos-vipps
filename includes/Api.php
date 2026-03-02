@@ -11,6 +11,11 @@ class Api {
 	private string $base_url;
 	private ?string $access_token = null;
 	private int $order_id = 0;
+	private ?string $last_error_title = null;
+
+	public function get_last_error_title(): ?string {
+		return $this->last_error_title;
+	}
 
 	public function set_order_id( int $order_id ): void {
 		$this->order_id = $order_id;
@@ -128,6 +133,8 @@ class Api {
 			return null;
 		}
 
+		$this->last_error_title = null;
+
 		$args = array(
 			'method'  => $method,
 			'headers' => array(
@@ -168,6 +175,7 @@ class Api {
 			} elseif ( ! empty( $body['message'] ) ) {
 				$error_detail = $body['message'];
 			}
+			$this->last_error_title = $error_detail ?: null;
 			Logger::log( "{$method} {$endpoint} — HTTP {$status}: {$error_detail}", 'ERROR', $this->order_id );
 			return null;
 		}
