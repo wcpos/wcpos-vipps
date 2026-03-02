@@ -48,6 +48,21 @@ class AjaxHandler {
 	}
 
 	/**
+	 * Get the current merchant serial number from the gateway.
+	 */
+	private function get_msn(): string {
+		$gateways = WC()->payment_gateways()->payment_gateways();
+		$gateway  = $gateways['wcpos_vipps'] ?? null;
+
+		if ( ! $gateway instanceof Gateway ) {
+			return '';
+		}
+
+		$prefix = 'yes' === $gateway->get_option( 'test_mode' ) ? 'test_' : '';
+		return $gateway->get_option( $prefix . 'merchant_serial_number' );
+	}
+
+	/**
 	 * Get the gateway's Api instance.
 	 */
 	private function get_api(): ?Api {
@@ -102,8 +117,19 @@ class AjaxHandler {
 				wp_send_json_error( array( 'message' => 'Phone number is required for push flow.' ) );
 				return;
 			}
-			$params['userFlow'] = 'PUSH_MESSAGE';
-			$params['customer'] = array( 'phoneNumber' => $phone );
+
+			$msn           = $this->get_msn();
+			$transient_key = 'wcpos_vipps_push_mode_' . $msn;
+			$cached_mode   = get_transient( $transient_key );
+			$use_redirect  = ( 'redirect' === $cached_mode );
+
+			if ( $use_redirect ) {
+				$params['userFlow'] = 'WEB_REDIRECT';
+				$params['customer'] = array( 'phoneNumber' => $phone );
+			} else {
+				$params['userFlow'] = 'PUSH_MESSAGE';
+				$params['customer'] = array( 'phoneNumber' => $phone );
+			}
 		} else {
 			$params['userFlow'] = 'QR';
 			$params['qrFormat'] = array(
@@ -116,12 +142,37 @@ class AjaxHandler {
 		$api->set_order_id( $order->get_id() );
 		$result = $api->create_payment( $params );
 
+		$mode_changed = false;
+
+		// If PUSH_MESSAGE failed with "not allowed", fall back to WEB_REDIRECT.
+		if ( ! $result && 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) ) {
+			$error_title = $api->get_last_error_title();
+
+			if ( $error_title && false !== strpos( $error_title, 'PUSH_MESSAGE' ) ) {
+				set_transient( $transient_key, 'redirect', DAY_IN_SECONDS );
+
+				Logger::log( 'PUSH_MESSAGE not supported — retrying with WEB_REDIRECT', 'INFO', $order->get_id() );
+
+				$reference           = 'wcpos-' . $order->get_id() . '-' . time();
+				$params['reference'] = $reference;
+				$params['userFlow']  = 'WEB_REDIRECT';
+
+				$result       = $api->create_payment( $params );
+				$mode_changed = true;
+			}
+		}
+
 		if ( ! $result ) {
 			Logger::log( 'Failed to create Vipps payment', 'ERROR', $order->get_id() );
-			$error_data = array( 'message' => 'Failed to create Vipps payment.' );
+			$error_data                = array( 'message' => 'Failed to create Vipps payment.' );
 			$error_data['log_entries'] = Logger::flush( $order->get_id() );
 			wp_send_json_error( $error_data );
 			return;
+		}
+
+		// Cache push as supported if it worked.
+		if ( 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) && ! $mode_changed ) {
+			set_transient( $transient_key, 'push', DAY_IN_SECONDS );
 		}
 
 		$order->update_meta_data( '_wcpos_vipps_reference', $reference );
@@ -130,14 +181,22 @@ class AjaxHandler {
 
 		$response = array(
 			'reference' => $reference,
-			'flow'      => $flow,
+			'flow'      => ( 'WEB_REDIRECT' === $params['userFlow'] ) ? 'redirect' : $flow,
 		);
 
 		if ( 'qr' === $flow && ! empty( $result['redirectUrl'] ) ) {
 			$response['qrUrl'] = $result['redirectUrl'];
 		}
 
-		Logger::log( "Payment created — flow: {$flow}, ref: {$reference}", 'INFO', $order->get_id() );
+		if ( 'WEB_REDIRECT' === $params['userFlow'] && ! empty( $result['redirectUrl'] ) ) {
+			$response['redirectUrl'] = $result['redirectUrl'];
+		}
+
+		if ( $mode_changed ) {
+			$response['modeChanged'] = true;
+		}
+
+		Logger::log( "Payment created — flow: {$flow}, userFlow: {$params['userFlow']}, ref: {$reference}", 'INFO', $order->get_id() );
 		$this->success_with_logs( $response, $order->get_id() );
 	}
 

@@ -25,6 +25,12 @@ class AjaxHandlerTest extends TestCase {
 			'wp_hash'             => 'md5',
 		) );
 
+		Functions\stubs( array(
+			'get_transient'    => false,
+			'set_transient'    => null,
+			'delete_transient' => null,
+		) );
+
 		$mock_logger = \Mockery::mock();
 		$mock_logger->shouldReceive( 'info' )->zeroOrMoreTimes();
 		Functions\stubs( array(
