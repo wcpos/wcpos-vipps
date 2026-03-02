@@ -25,6 +25,7 @@ class GatewayTest extends TestCase {
 			'get_option'   => function () { return array(); },
 			'apply_filters' => true,
 			'absint'       => function ( $v ) { return abs( intval( $v ) ); },
+			'delete_option'  => null,
 		) );
 
 		$mock_logger = \Mockery::mock();
@@ -338,5 +339,37 @@ class GatewayTest extends TestCase {
 
 		$this->assertInstanceOf( \WP_Error::class, $result );
 		$this->assertSame( 'missing_reference', $result->code );
+	}
+
+	// ---------------------------------------------------------------
+	// get_phone_flow_mode
+	// ---------------------------------------------------------------
+
+	public function test_get_phone_flow_mode_returns_redirect_when_transient_set(): void {
+		Functions\expect( 'get_transient' )
+			->with( 'wcpos_vipps_push_mode_msn123' )
+			->andReturn( 'redirect' );
+
+		$gateway = $this->make_gateway( array(
+			'merchant_serial_number' => 'msn123',
+		) );
+
+		$method = new \ReflectionMethod( Gateway::class, 'get_phone_flow_mode' );
+		$result = $method->invoke( $gateway );
+		$this->assertSame( 'redirect', $result );
+	}
+
+	public function test_get_phone_flow_mode_defaults_to_push(): void {
+		Functions\expect( 'get_transient' )
+			->with( 'wcpos_vipps_push_mode_msn456' )
+			->andReturn( false );
+
+		$gateway = $this->make_gateway( array(
+			'merchant_serial_number' => 'msn456',
+		) );
+
+		$method = new \ReflectionMethod( Gateway::class, 'get_phone_flow_mode' );
+		$result = $method->invoke( $gateway );
+		$this->assertSame( 'push', $result );
 	}
 }
