@@ -10,6 +10,7 @@ const mockConfig = {
   orderId: 42,
   token: 'test-token',
   debug: true,
+  phoneFlowMode: 'push' as const,
 };
 
 describe('useVippsPayment', () => {
@@ -225,6 +226,77 @@ describe('useVippsPayment', () => {
 
     expect(result.current.logEntries).toContain('[SERVER] Payment created');
     expect(result.current.logEntries).toContain('[SERVER] ePayment initiated');
+  });
+
+  it('updates phoneFlowMode when modeChanged is true', async () => {
+    vi.mocked(api.createPayment).mockResolvedValue({
+      success: true,
+      data: {
+        reference: 'ref-mode',
+        flow: 'redirect',
+        redirectUrl: 'https://vipps.no/landing',
+        modeChanged: true,
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useVippsPayment({ ...mockConfig, phoneFlowMode: 'push' })
+    );
+
+    await act(async () => {
+      result.current.sendPush('4712345678');
+    });
+
+    expect(result.current.state).toBe('failed');
+    expect(result.current.error).toContain('Click');
+    expect(result.current.phoneFlowMode).toBe('redirect');
+  });
+
+  it('opens tab and sets URL when in redirect mode', async () => {
+    const mockTab = { location: { href: '' }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(mockTab as unknown as Window);
+
+    vi.mocked(api.createPayment).mockResolvedValue({
+      success: true,
+      data: {
+        reference: 'ref-redir',
+        flow: 'redirect',
+        redirectUrl: 'https://vipps.no/landing-page',
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useVippsPayment({ ...mockConfig, phoneFlowMode: 'redirect' })
+    );
+
+    await act(async () => {
+      result.current.sendPush('4712345678');
+    });
+
+    expect(window.open).toHaveBeenCalledWith('about:blank', '_blank');
+    expect(mockTab.location.href).toBe('https://vipps.no/landing-page');
+    expect(result.current.state).toBe('polling');
+  });
+
+  it('closes pre-opened tab on redirect flow failure', async () => {
+    const mockTab = { location: { href: '' }, close: vi.fn() };
+    vi.spyOn(window, 'open').mockReturnValue(mockTab as unknown as Window);
+
+    vi.mocked(api.createPayment).mockResolvedValue({
+      success: false,
+      data: { reference: '', flow: 'redirect', message: 'Payment failed' },
+    });
+
+    const { result } = renderHook(() =>
+      useVippsPayment({ ...mockConfig, phoneFlowMode: 'redirect' })
+    );
+
+    await act(async () => {
+      result.current.sendPush('4712345678');
+    });
+
+    expect(mockTab.close).toHaveBeenCalled();
+    expect(result.current.state).toBe('failed');
   });
 
   it('does not collect logs when debug is false', async () => {
