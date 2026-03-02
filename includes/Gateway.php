@@ -22,6 +22,7 @@ class Gateway extends \WC_Payment_Gateway {
 		$this->description = $this->get_option( 'description' );
 
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
+		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'clear_push_notice_dismissal' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_payment_scripts' ) );
 	}
 
@@ -269,6 +270,28 @@ class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
+	 * Get the current phone flow mode from the cached transient.
+	 */
+	private function get_phone_flow_mode(): string {
+		$prefix = 'yes' === $this->get_option( 'test_mode' ) ? 'test_' : '';
+		$msn    = $this->get_option( $prefix . 'merchant_serial_number' );
+		$mode   = get_transient( 'wcpos_vipps_push_mode_' . $msn );
+
+		return ( 'redirect' === $mode ) ? 'redirect' : 'push';
+	}
+
+	/**
+	 * Clear the push notice dismissal when settings are saved (MSN may have changed).
+	 */
+	public function clear_push_notice_dismissal(): void {
+		$prefix = 'yes' === $this->get_option( 'test_mode' ) ? 'test_' : '';
+		$msn    = $this->get_option( $prefix . 'merchant_serial_number' );
+		if ( $msn ) {
+			delete_option( 'wcpos_vipps_push_notice_dismissed_' . md5( $msn ) );
+		}
+	}
+
+	/**
 	 * Enqueue frontend payment scripts on the order-pay page.
 	 */
 	public function enqueue_payment_scripts(): void {
@@ -299,8 +322,9 @@ class Gateway extends \WC_Payment_Gateway {
 			'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 			'orderId' => $order_id,
 			'token'   => AjaxHandler::generate_token( $order_id ),
-			'debug'   => 'yes' === $this->get_option( 'debug' ),
-			'strings' => array(
+			'debug'         => 'yes' === $this->get_option( 'debug' ),
+			'phoneFlowMode' => $this->get_phone_flow_mode(),
+			'strings'       => array(
 				'generatingQr'      => __( 'Generating QR code...', 'wcpos-vipps' ),
 				'sendingPush'       => __( 'Sending payment request...', 'wcpos-vipps' ),
 				'waitingForPayment' => __( 'Waiting for payment...', 'wcpos-vipps' ),

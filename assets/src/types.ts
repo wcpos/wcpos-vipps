@@ -7,13 +7,14 @@ export type PaymentState =
   | 'cancelled'
   | 'expired';
 
-export type PaymentFlow = 'qr' | 'push';
+export type PaymentFlow = 'qr' | 'push' | 'redirect';
 
 export interface VippsConfig {
   ajaxUrl: string;
   orderId: number;
   token: string;
   debug: boolean;
+  phoneFlowMode: 'push' | 'redirect';
   strings: Record<string, string>;
 }
 
@@ -21,6 +22,8 @@ export interface CreatePaymentResponse {
   reference: string;
   flow: PaymentFlow;
   qrUrl?: string;
+  redirectUrl?: string;
+  modeChanged?: boolean;
 }
 
 export interface CheckStatusResponse {

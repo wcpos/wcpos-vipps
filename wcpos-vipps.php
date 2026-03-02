@@ -33,4 +33,8 @@ add_action( 'plugins_loaded', function () {
     } );
 
     new \WCPOS\WooCommercePOS\Vipps\AjaxHandler();
+
+    if ( is_admin() ) {
+        new \WCPOS\WooCommercePOS\Vipps\AdminNotice();
+    }
 } );

@@ -8,7 +8,12 @@ This gateway uses the [Vipps MobilePay ePayment API](https://developer.vippsmobi
 
 **QR Code** — Click "Generate QR Code" to display a QR code on screen. The customer scans it with the Vipps or MobilePay app and confirms payment.
 
-**Push Notification** — Enter the customer's phone number and click "Send to Phone." Vipps sends a push notification to the customer's app for confirmation.
+**Send to Phone** — Enter the customer's phone number and click "Send to Phone." The plugin automatically detects the best available method:
+
+- **Direct push** (preferred) — Sends a payment request straight to the customer's Vipps app. Requires Vipps to enable `PUSH_MESSAGE` on your sales unit (see [Enabling Direct Push](#enabling-direct-push) below).
+- **Landing page fallback** — If direct push isn't enabled, the plugin opens the Vipps landing page in a new browser tab instead. The landing page handles sending the notification to the customer. Works out of the box with no special approval.
+
+The plugin detects which method is available on the first attempt and remembers the result for 24 hours. If direct push isn't available, you'll see a one-time message asking you to click "Send to Phone" again — after that it works seamlessly.
 
 Both flows poll for payment status every 2 seconds (up to 5 minutes). When the payment is authorized, the order completes automatically.
 
@@ -55,7 +60,7 @@ If the official [Checkout with Vipps MobilePay](https://wordpress.org/plugins/wo
 
 ### POS Checkout (requires Pro)
 
-This gateway is designed to work inside the [WooCommerce POS](https://wcpos.com) checkout. The payment interface renders on the order-pay page — the same page the POS loads for payment processing. No redirects, no popups, no external windows.
+This gateway is designed to work inside the [WooCommerce POS](https://wcpos.com) checkout. The payment interface renders on the order-pay page — the same page the POS loads for payment processing. With direct push enabled, the entire flow stays in-page with no external windows. If using the landing page fallback, a single browser tab opens for the customer (see [Enabling Direct Push](#enabling-direct-push)).
 
 1. Enable the gateway in `WP Admin > WooCommerce POS > Settings > Checkout`
 2. You don't need to enable it in WooCommerce Payments settings for POS-only use
@@ -63,6 +68,18 @@ This gateway is designed to work inside the [WooCommerce POS](https://wcpos.com)
 ### Web Checkout
 
 The gateway also works on the standard WooCommerce checkout. Selecting "WCPOS Vipps MobilePay" and clicking "Place Order" creates the order and redirects to the order-pay page, where the QR code and push notification interface appears.
+
+## Enabling Direct Push
+
+The direct push flow (`PUSH_MESSAGE`) provides the best checkout experience — the customer gets a notification on their phone without any extra tabs or pages. However, Vipps requires explicit approval on your sales unit before you can use it.
+
+To enable direct push:
+
+1. Log in to [portal.vippsmobilepay.com](https://portal.vippsmobilepay.com)
+2. Contact your Vipps key account manager, partner manager, or customer service
+3. Tell them: "I need PUSH_MESSAGE enabled on my MSN for use with a POS integration"
+
+Once approved, the plugin detects the change automatically (within 24 hours) and switches to the direct push flow. An admin notice on the gateway settings page will remind you to set this up while you're using the landing page fallback.
 
 ## Debug Logging
 
@@ -95,8 +112,9 @@ wcpos-vipps.php              → Plugin bootstrap, registers gateway
 includes/Gateway.php          → WC_Payment_Gateway subclass, settings, payment fields
 includes/Api.php              → Vipps ePayment API client (auth, create, capture, refund, cancel)
 includes/AjaxHandler.php      → AJAX endpoints for create_payment, check_status, cancel_payment
+includes/AdminNotice.php      → Admin notice for direct push upgrade nudge
 includes/Logger.php           → Debug logging with per-order transient buffer
-assets/js/payment.js          → Frontend payment UI (jQuery)
+assets/src/                   → React/TypeScript frontend (payment UI, hooks, components)
 assets/css/payment.css        → Payment interface styling (Vipps brand colors)
 ```
 

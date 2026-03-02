@@ -10,6 +10,7 @@ interface UseVippsPaymentOptions {
   orderId: number;
   token: string;
   debug: boolean;
+  phoneFlowMode: 'push' | 'redirect';
 }
 
 interface UseVippsPaymentResult {
@@ -17,6 +18,7 @@ interface UseVippsPaymentResult {
   qrUrl: string | null;
   error: string | null;
   logEntries: string[];
+  phoneFlowMode: 'push' | 'redirect';
   createQr: () => void;
   sendPush: (phone: string) => void;
   cancel: () => void;
@@ -26,7 +28,7 @@ function timestamp(): string {
   return new Date().toLocaleTimeString('en-GB', { hour12: false });
 }
 
-export function useVippsPayment({ ajaxUrl, orderId, token, debug }: UseVippsPaymentOptions): UseVippsPaymentResult {
+export function useVippsPayment({ ajaxUrl, orderId, token, debug, phoneFlowMode }: UseVippsPaymentOptions): UseVippsPaymentResult {
   const [state, setState] = useState<PaymentState>('idle');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,8 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug }: UseVippsPaym
   const pollCountRef = useRef(0);
   const pollInFlightRef = useRef(false);
   const cancelledRef = useRef(false);
+  const [currentFlowMode, setCurrentFlowMode] = useState<'push' | 'redirect'>(phoneFlowMode);
+  const redirectTabRef = useRef<Window | null>(null);
 
   const appendLog = useCallback((message: string) => {
     if (!debug) return;
@@ -127,35 +131,82 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug }: UseVippsPaym
     setQrUrl(null);
     cancelledRef.current = false;
 
+    // Pre-open a blank tab if we know we need redirect mode.
+    let tab: Window | null = null;
+    if (flow === 'push' && currentFlowMode === 'redirect') {
+      tab = window.open('about:blank', '_blank');
+      redirectTabRef.current = tab;
+      if (!tab) {
+        setState('failed');
+        setError('Popup blocked. Please allow popups and try again.');
+        appendLog('[CLIENT] Popup blocked — cannot open redirect tab');
+        return;
+      }
+    }
+
     appendLog(`[CLIENT] ${flow === 'qr' ? 'Generating QR code' : `Sending push to ${phone}`}...`);
 
     try {
       const response = await createPayment(ajaxUrl, orderId, token, flow, phone);
       collectServerLogs(response);
 
-      // Guard: if cancel() was called while createPayment was in flight, discard the response.
-      if (cancelledRef.current) return;
+      if (cancelledRef.current) {
+        tab?.close();
+        return;
+      }
 
       if (response.success) {
+        // Handle modeChanged: backend detected PUSH_MESSAGE is unsupported.
+        if (response.data.modeChanged) {
+          setCurrentFlowMode('redirect');
+          tab?.close();
+          setState('failed');
+          setError('Direct push not available for your account. Click Send to Phone again.');
+          appendLog('[CLIENT] PUSH_MESSAGE not supported — switching to redirect mode');
+          return;
+        }
+
+        // Handle redirect flow: set the pre-opened tab URL.
+        if (response.data.flow === 'redirect') {
+          if (!response.data.redirectUrl) {
+            tab?.close();
+            setState('failed');
+            setError('Could not open Vipps page. Please try again.');
+            appendLog('[CLIENT] Redirect flow returned without redirect URL');
+            return;
+          }
+          if (!tab) {
+            setState('failed');
+            setError('Popup blocked. Please allow popups and try again.');
+            appendLog('[CLIENT] Popup blocked — cannot open redirect tab');
+            return;
+          }
+          tab.location.href = response.data.redirectUrl;
+          appendLog('[CLIENT] Opened Vipps landing page in new tab');
+        }
+
         if (flow === 'qr' && response.data.qrUrl) {
           setQrUrl(response.data.qrUrl);
           appendLog('[CLIENT] QR code displayed');
         }
+
         setState('polling');
         appendLog('[CLIENT] Polling started (every 2s, max 5 min)');
         startPolling();
       } else {
+        tab?.close();
         setState('failed');
         setError(response.data.message ?? 'Payment failed. Please try again.');
         appendLog(`[CLIENT] Payment creation failed: ${response.data.message ?? 'unknown error'}`);
       }
     } catch {
+      tab?.close();
       if (cancelledRef.current) return;
       setState('failed');
       setError('Network error. Please check your connection.');
       appendLog('[CLIENT] Network error during payment creation');
     }
-  }, [ajaxUrl, orderId, token, startPolling, appendLog, collectServerLogs]);
+  }, [ajaxUrl, orderId, token, currentFlowMode, startPolling, appendLog, collectServerLogs]);
 
   const createQr = useCallback(() => handleCreate('qr'), [handleCreate]);
 
@@ -182,5 +233,5 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug }: UseVippsPaym
     }
   }, [ajaxUrl, orderId, token, stopPolling, appendLog]);
 
-  return { state, qrUrl, error, logEntries, createQr, sendPush, cancel };
+  return { state, qrUrl, error, logEntries, phoneFlowMode: currentFlowMode, createQr, sendPush, cancel };
 }

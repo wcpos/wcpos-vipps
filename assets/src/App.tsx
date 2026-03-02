@@ -19,6 +19,7 @@ export function App({ config }: AppProps) {
     orderId: config.orderId,
     token: config.token,
     debug: config.debug,
+    phoneFlowMode: config.phoneFlowMode,
   });
 
   // Auto-submit the WC form when payment is authorized.

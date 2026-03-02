@@ -48,6 +48,21 @@ class AjaxHandler {
 	}
 
 	/**
+	 * Get the current merchant serial number from the gateway.
+	 */
+	private function get_msn(): string {
+		$gateways = WC()->payment_gateways()->payment_gateways();
+		$gateway  = $gateways['wcpos_vipps'] ?? null;
+
+		if ( ! $gateway instanceof Gateway ) {
+			return '';
+		}
+
+		$prefix = 'yes' === $gateway->get_option( 'test_mode' ) ? 'test_' : '';
+		return $gateway->get_option( $prefix . 'merchant_serial_number' );
+	}
+
+	/**
 	 * Get the gateway's Api instance.
 	 */
 	private function get_api(): ?Api {
@@ -102,8 +117,19 @@ class AjaxHandler {
 				wp_send_json_error( array( 'message' => 'Phone number is required for push flow.' ) );
 				return;
 			}
-			$params['userFlow'] = 'PUSH_MESSAGE';
-			$params['customer'] = array( 'phoneNumber' => $phone );
+
+			$msn           = $this->get_msn();
+			$transient_key = $msn ? 'wcpos_vipps_push_mode_' . $msn : '';
+			$cached_mode   = $transient_key ? get_transient( $transient_key ) : false;
+			$use_redirect  = ( 'redirect' === $cached_mode );
+
+			if ( $use_redirect ) {
+				$params['userFlow'] = 'WEB_REDIRECT';
+				$params['customer'] = array( 'phoneNumber' => $phone );
+			} else {
+				$params['userFlow'] = 'PUSH_MESSAGE';
+				$params['customer'] = array( 'phoneNumber' => $phone );
+			}
 		} else {
 			$params['userFlow'] = 'QR';
 			$params['qrFormat'] = array(
@@ -116,28 +142,75 @@ class AjaxHandler {
 		$api->set_order_id( $order->get_id() );
 		$result = $api->create_payment( $params );
 
+		// If PUSH_MESSAGE failed with a "not allowed" error, cache redirect mode
+		// and signal the frontend to retry — do NOT create a wasted payment here.
+		if ( ! $result && 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) ) {
+			$error_title = $api->get_last_error_title();
+
+			$is_push_not_allowed =
+				$error_title &&
+				false !== stripos( $error_title, 'PUSH_MESSAGE' ) &&
+				(
+					false !== stripos( $error_title, 'not allowed' ) ||
+					false !== stripos( $error_title, 'not enabled' ) ||
+					false !== stripos( $error_title, 'not permitted' ) ||
+					false !== stripos( $error_title, 'disabled' )
+				);
+
+			if ( $is_push_not_allowed ) {
+				if ( $transient_key ) {
+					set_transient( $transient_key, 'redirect', DAY_IN_SECONDS );
+				}
+
+				Logger::log( 'PUSH_MESSAGE not supported — switching to WEB_REDIRECT for future requests', 'INFO', $order->get_id() );
+
+				$this->success_with_logs( array(
+					'modeChanged' => true,
+					'flow'        => 'redirect',
+				), $order->get_id() );
+				return;
+			}
+		}
+
 		if ( ! $result ) {
 			Logger::log( 'Failed to create Vipps payment', 'ERROR', $order->get_id() );
-			$error_data = array( 'message' => 'Failed to create Vipps payment.' );
+			$error_data                = array( 'message' => 'Failed to create Vipps payment.' );
 			$error_data['log_entries'] = Logger::flush( $order->get_id() );
 			wp_send_json_error( $error_data );
 			return;
 		}
 
-		$order->update_meta_data( '_wcpos_vipps_reference', $reference );
-		$order->update_meta_data( '_wcpos_vipps_status', 'CREATED' );
-		$order->save();
+		// Cache push as supported if it worked.
+		if ( 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) && ! empty( $transient_key ) ) {
+			set_transient( $transient_key, 'push', DAY_IN_SECONDS );
+		}
 
 		$response = array(
 			'reference' => $reference,
-			'flow'      => $flow,
+			'flow'      => ( 'WEB_REDIRECT' === $params['userFlow'] ) ? 'redirect' : $flow,
 		);
 
 		if ( 'qr' === $flow && ! empty( $result['redirectUrl'] ) ) {
 			$response['qrUrl'] = $result['redirectUrl'];
 		}
 
-		Logger::log( "Payment created — flow: {$flow}, ref: {$reference}", 'INFO', $order->get_id() );
+		// Validate redirectUrl before persisting order state.
+		if ( 'WEB_REDIRECT' === ( $params['userFlow'] ?? '' ) ) {
+			if ( empty( $result['redirectUrl'] ) ) {
+				Logger::log( 'WEB_REDIRECT payment missing redirectUrl', 'ERROR', $order->get_id() );
+				$error_data                = array( 'message' => 'Failed to create Vipps redirect payment.' );
+				$error_data['log_entries'] = Logger::flush( $order->get_id() );
+				wp_send_json_error( $error_data );
+				return;
+			}
+			$response['redirectUrl'] = $result['redirectUrl'];
+		}
+
+		$order->update_meta_data( '_wcpos_vipps_reference', $reference );
+		$order->update_meta_data( '_wcpos_vipps_status', 'CREATED' );
+		$order->save();
+
+		Logger::log( "Payment created — flow: {$flow}, userFlow: {$params['userFlow']}, ref: {$reference}", 'INFO', $order->get_id() );
 		$this->success_with_logs( $response, $order->get_id() );
 	}
 
