@@ -29,10 +29,15 @@ class Gateway extends \WC_Payment_Gateway {
 	public function init_form_fields() {
 		$this->form_fields = array(
 			'enabled'     => array(
-				'title'   => __( 'Enable/Disable', 'wcpos-vipps' ),
-				'type'    => 'checkbox',
-				'label'   => __( 'Enable WCPOS Vipps MobilePay', 'wcpos-vipps' ),
-				'default' => 'no',
+				'title'       => __( 'Enable/Disable', 'wcpos-vipps' ),
+				'type'        => 'checkbox',
+				'label'       => \sprintf(
+					// Translators: %s is the link to WooCommerce POS.
+					__( 'Enable Vipps MobilePay for web checkout (not necessary for %s)', 'wcpos-vipps' ),
+					'<a href="https://wcpos.com" target="_blank">WooCommerce POS</a>'
+				),
+				'description' => __( 'This enables the gateway for online store checkout. The POS uses this gateway automatically when configured.', 'wcpos-vipps' ),
+				'default'     => 'no',
 			),
 			'title'       => array(
 				'title'    => __( 'Title', 'wcpos-vipps' ),
