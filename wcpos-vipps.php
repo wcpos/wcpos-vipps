@@ -13,7 +13,9 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WCPOS_VIPPS_VERSION', '0.3.1' );
+$wcpos_vipps_data = get_file_data( __FILE__, array( 'version' => 'Version' ) );
+define( 'WCPOS_VIPPS_VERSION', $wcpos_vipps_data['version'] );
+unset( $wcpos_vipps_data );
 define( 'WCPOS_VIPPS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WCPOS_VIPPS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 
