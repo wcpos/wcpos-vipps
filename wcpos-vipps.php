@@ -3,7 +3,7 @@
  * Plugin Name: WCPOS Vipps MobilePay
  * Plugin URI: https://github.com/wcpos/wcpos-vipps
  * Description: Vipps MobilePay payment gateway with QR code and push notification support.
- * Version: 0.3.1
+ * Version: 0.4.0
  * Author: kilbot
  * License: GNU General Public License v3.0
  * License URI: http://www.gnu.org/licenses/gpl-3.0.html
