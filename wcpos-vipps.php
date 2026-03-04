@@ -36,4 +36,5 @@ add_action( 'plugins_loaded', function () {
     } );
 
     new \WCPOS\WooCommercePOS\Vipps\AjaxHandler();
+    new \WCPOS\WooCommercePOS\Vipps\ReturnHandler();
 } );

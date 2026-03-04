@@ -29,6 +29,10 @@ class AjaxHandlerTest extends TestCase {
 			'get_transient'    => false,
 			'set_transient'    => null,
 			'delete_transient' => null,
+			'get_option'          => false,
+			'add_option'          => true,
+			'delete_option'       => true,
+			'wp_generate_uuid4'   => 'test-uuid-1234',
 		) );
 
 		$mock_logger = \Mockery::mock();
@@ -169,5 +173,144 @@ class AjaxHandlerTest extends TestCase {
 		$result  = $this->call_validate_request( $handler );
 
 		$this->assertSame( $mock_order, $result );
+	}
+
+	// ---------------------------------------------------------------
+	// normalize_no_phone
+	// ---------------------------------------------------------------
+
+	private function call_normalize_no_phone( AjaxHandler $handler, string $phone, int $order_id = 1 ): ?string {
+		$method = new \ReflectionMethod( AjaxHandler::class, 'normalize_no_phone' );
+		$method->setAccessible( true );
+		return $method->invoke( $handler, $phone, $order_id );
+	}
+
+	public function test_normalize_phone_8_digit_local(): void {
+		$handler = new AjaxHandler();
+		$this->assertSame( '4741234567', $this->call_normalize_no_phone( $handler, '41234567' ) );
+	}
+
+	public function test_normalize_phone_with_country_code(): void {
+		$handler = new AjaxHandler();
+		$this->assertSame( '4741234567', $this->call_normalize_no_phone( $handler, '4741234567' ) );
+	}
+
+	public function test_normalize_phone_with_plus_prefix(): void {
+		$handler = new AjaxHandler();
+		$this->assertSame( '4741234567', $this->call_normalize_no_phone( $handler, '+4741234567' ) );
+	}
+
+	public function test_normalize_phone_with_0047_prefix(): void {
+		$handler = new AjaxHandler();
+		$this->assertSame( '4741234567', $this->call_normalize_no_phone( $handler, '004741234567' ) );
+	}
+
+	public function test_normalize_phone_with_spaces(): void {
+		$handler = new AjaxHandler();
+		$this->assertSame( '4741234567', $this->call_normalize_no_phone( $handler, '+47 412 34 567' ) );
+	}
+
+	public function test_normalize_phone_rejects_too_short(): void {
+		$handler = new AjaxHandler();
+		$this->assertNull( $this->call_normalize_no_phone( $handler, '1234' ) );
+	}
+
+	public function test_normalize_phone_rejects_non_norwegian(): void {
+		$handler = new AjaxHandler();
+		$this->assertNull( $this->call_normalize_no_phone( $handler, '+4612345678' ) );
+	}
+
+	// ---------------------------------------------------------------
+	// redact_url_token
+	// ---------------------------------------------------------------
+
+	private function call_redact_url_token( AjaxHandler $handler, string $url ): string {
+		$method = new \ReflectionMethod( AjaxHandler::class, 'redact_url_token' );
+		$method->setAccessible( true );
+		return $method->invoke( $handler, $url );
+	}
+
+	public function test_redact_url_token_with_query_param(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?token=secret123&foo=bar';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
+		$this->assertStringContainsString( 'token=[redacted]', $result );
+		$this->assertStringNotContainsString( 'secret123', $result );
+	}
+
+	public function test_redact_url_token_with_ampersand_param(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?foo=bar&token=secret123';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
+		$this->assertStringContainsString( 'token=[redacted]', $result );
+		$this->assertStringNotContainsString( 'secret123', $result );
+	}
+
+	public function test_redact_url_token_with_prefixed_param(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?wcpos_vipps_token=secret123&foo=bar';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
+		$this->assertStringContainsString( 'wcpos_vipps_token=[redacted]', $result );
+		$this->assertStringNotContainsString( 'secret123', $result );
+	}
+
+	public function test_redact_url_token_percent_encoded(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?foo=bar&token%3Dsecret123';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
+		$this->assertStringNotContainsString( 'secret123', $result );
+	}
+
+	public function test_redact_url_token_percent_encoded_prefixed_token(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?foo=bar&wcpos_vipps_token%3Dsecret123';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
+		$this->assertStringNotContainsString( 'secret123', $result );
+	}
+
+	public function test_redact_url_token_without_token(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?foo=bar';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
+		$this->assertSame( $url, $result );
+	}
+
+	// ---------------------------------------------------------------
+	// build_return_url
+	// ---------------------------------------------------------------
+
+	private function call_build_return_url( AjaxHandler $handler, \WC_Order $order ): string {
+		$method = new \ReflectionMethod( AjaxHandler::class, 'build_return_url' );
+		$method->setAccessible( true );
+		return $method->invoke( $handler, $order );
+	}
+
+	public function test_build_return_url_contains_required_params(): void {
+		Functions\expect( 'home_url' )
+			->once()
+			->with( '/' )
+			->andReturn( 'https://example.com/' );
+
+		Functions\expect( 'add_query_arg' )
+			->once()
+			->andReturnUsing( function ( $args, $url ) {
+				return $url . '?' . http_build_query( $args );
+			} );
+
+		$mock_order = \Mockery::mock( 'WC_Order' );
+		$mock_order->shouldReceive( 'get_id' )->andReturn( 42 );
+
+		$handler = new AjaxHandler();
+		$url     = $this->call_build_return_url( $handler, $mock_order );
+
+		$this->assertStringContainsString( 'wcpos_vipps_return=1', $url );
+		$this->assertStringContainsString( 'wcpos_vipps_order_id=42', $url );
+		$this->assertStringContainsString( 'wcpos_vipps_token=', $url );
 	}
 }
