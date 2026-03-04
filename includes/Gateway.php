@@ -16,6 +16,7 @@ class Gateway extends \WC_Payment_Gateway {
 
 		$this->init_form_fields();
 		$this->init_settings();
+		$this->form_fields['phone_flow']['description'] = $this->get_phone_flow_description();
 		$this->maybe_import_credentials();
 
 		$this->title       = $this->get_option( 'title' );
@@ -74,7 +75,7 @@ class Gateway extends \WC_Payment_Gateway {
 			'phone_flow' => array(
 				'title'       => __( 'Phone payment method', 'wcpos-vipps' ),
 				'type'        => 'select',
-				'description' => $this->get_phone_flow_description(),
+				'description' => '',
 				'default'     => 'push',
 				'options'     => array(
 					'push'     => __( 'Direct Push', 'wcpos-vipps' ),
