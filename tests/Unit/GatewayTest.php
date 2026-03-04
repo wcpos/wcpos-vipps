@@ -105,6 +105,7 @@ class GatewayTest extends TestCase {
 			'client_secret',
 			'subscription_key',
 			'auto_capture',
+			'phone_flow',
 			'debug',
 			'test_mode',
 			'test_merchant_serial_number',
@@ -117,7 +118,7 @@ class GatewayTest extends TestCase {
 			$this->assertArrayHasKey( $key, $gateway->form_fields, "Missing form field: {$key}" );
 		}
 
-		$this->assertCount( 14, $gateway->form_fields );
+		$this->assertCount( 15, $gateway->form_fields );
 	}
 
 	// ---------------------------------------------------------------
@@ -342,36 +343,23 @@ class GatewayTest extends TestCase {
 	}
 
 	// ---------------------------------------------------------------
-	// get_phone_flow_mode
+	// phone_flow setting
 	// ---------------------------------------------------------------
 
-	public function test_get_phone_flow_mode_returns_redirect_when_transient_set(): void {
-		Functions\expect( 'get_transient' )
-			->with( 'wcpos_vipps_push_mode_msn123' )
-			->andReturn( 'redirect' );
-
-		$gateway = $this->make_gateway( array(
-			'merchant_serial_number' => 'msn123',
-		) );
-
-		$method = new \ReflectionMethod( Gateway::class, 'get_phone_flow_mode' );
-		$method->setAccessible( true );
-		$result = $method->invoke( $gateway );
-		$this->assertSame( 'redirect', $result );
+	public function test_phone_flow_defaults_to_push(): void {
+		$gateway = $this->make_gateway();
+		$this->assertSame( 'push', $gateway->get_option( 'phone_flow', 'push' ) );
 	}
 
-	public function test_get_phone_flow_mode_defaults_to_push(): void {
-		Functions\expect( 'get_transient' )
-			->with( 'wcpos_vipps_push_mode_msn456' )
-			->andReturn( false );
+	public function test_phone_flow_returns_redirect_when_set(): void {
+		$gateway = $this->make_gateway( array( 'phone_flow' => 'redirect' ) );
+		$this->assertSame( 'redirect', $gateway->get_option( 'phone_flow' ) );
+	}
 
-		$gateway = $this->make_gateway( array(
-			'merchant_serial_number' => 'msn456',
-		) );
-
-		$method = new \ReflectionMethod( Gateway::class, 'get_phone_flow_mode' );
-		$method->setAccessible( true );
-		$result = $method->invoke( $gateway );
-		$this->assertSame( 'push', $result );
+	public function test_phone_flow_form_field_exists(): void {
+		$gateway = $this->make_gateway();
+		$this->assertArrayHasKey( 'phone_flow', $gateway->form_fields );
+		$this->assertSame( 'select', $gateway->form_fields['phone_flow']['type'] );
+		$this->assertSame( 'push', $gateway->form_fields['phone_flow']['default'] );
 	}
 }
