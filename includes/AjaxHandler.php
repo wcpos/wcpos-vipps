@@ -143,6 +143,11 @@ class AjaxHandler {
 			return;
 		}
 
+		$api = $this->get_api();
+		if ( ! $api ) {
+			return;
+		}
+
 		$lock_key = 'wcpos_vipps_create_lock_' . $order->get_id();
 		if ( get_transient( $lock_key ) ) {
 			wp_send_json_error( array(
@@ -198,11 +203,6 @@ class AjaxHandler {
 					'format' => 'IMAGE/PNG',
 					'size'   => 250,
 				);
-			}
-
-			$api = $this->get_api();
-			if ( ! $api ) {
-				return;
 			}
 
 			$api->set_order_id( $order->get_id() );
