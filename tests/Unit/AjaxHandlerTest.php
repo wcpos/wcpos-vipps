@@ -30,6 +30,8 @@ class AjaxHandlerTest extends TestCase {
 			'set_transient'    => null,
 			'delete_transient' => null,
 			'get_option'       => false,
+			'add_option'       => true,
+			'delete_option'    => true,
 		) );
 
 		$mock_logger = \Mockery::mock();
@@ -242,6 +244,23 @@ class AjaxHandlerTest extends TestCase {
 		$result  = $this->call_redact_url_token( $handler, $url );
 
 		$this->assertStringContainsString( 'token=[redacted]', $result );
+		$this->assertStringNotContainsString( 'secret123', $result );
+	}
+
+	public function test_redact_url_token_with_prefixed_param(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?wcpos_vipps_token=secret123&foo=bar';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
+		$this->assertStringContainsString( 'wcpos_vipps_token=[redacted]', $result );
+		$this->assertStringNotContainsString( 'secret123', $result );
+	}
+
+	public function test_redact_url_token_percent_encoded(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?foo=bar&token%3Dsecret123';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
 		$this->assertStringNotContainsString( 'secret123', $result );
 	}
 

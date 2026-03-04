@@ -131,7 +131,19 @@ class AjaxHandler {
 	 * Redact token values from a URL for safe logging.
 	 */
 	private function redact_url_token( string $url ): string {
-		return (string) preg_replace( '/([?&])token=[^&]*/', '$1token=[redacted]', $url );
+		return (string) preg_replace(
+			array(
+				'/([?&])(token|wcpos_vipps_token)=[^&]*/i',
+				'/(token%3D)[^%&]*/i',
+				'/(wcpos_vipps_token%3D)[^%&]*/i',
+			),
+			array(
+				'$1$2=[redacted]',
+				'$1[redacted]',
+				'$1[redacted]',
+			),
+			$url
+		);
 	}
 
 	/**
@@ -149,14 +161,24 @@ class AjaxHandler {
 		}
 
 		$lock_key = 'wcpos_vipps_create_lock_' . $order->get_id();
-		if ( get_transient( $lock_key ) ) {
+		$now      = time();
+		$acquired = add_option( $lock_key, (string) $now, '', 'no' );
+
+		if ( ! $acquired ) {
+			$created_at = (int) get_option( $lock_key );
+			if ( $created_at > 0 && ( $now - $created_at ) > 30 ) {
+				delete_option( $lock_key );
+				$acquired = add_option( $lock_key, (string) $now, '', 'no' );
+			}
+		}
+
+		if ( ! $acquired ) {
 			wp_send_json_error( array(
 				'message'     => 'Payment creation already in progress.',
 				'log_entries' => Logger::flush( $order->get_id() ),
 			) );
 			return;
 		}
-		set_transient( $lock_key, 1, 30 );
 
 		try {
 			$flow  = sanitize_text_field( $_POST['flow'] ?? 'qr' );
@@ -179,14 +201,14 @@ class AjaxHandler {
 
 			if ( 'push' === $flow ) {
 				if ( empty( $phone ) ) {
-					delete_transient( $lock_key );
+					delete_option( $lock_key );
 					wp_send_json_error( array( 'message' => 'Phone number is required for push flow.' ) );
 					return;
 				}
 
 				$normalized = $this->normalize_no_phone( $phone, $order->get_id() );
 				if ( ! $normalized ) {
-					delete_transient( $lock_key );
+					delete_option( $lock_key );
 					wp_send_json_error( array( 'message' => 'Invalid phone number. Use a Norwegian number, e.g. 4741234567.' ) );
 					return;
 				}
@@ -234,7 +256,7 @@ class AjaxHandler {
 						Logger::log( 'Direct Push not supported — switched setting to Web Redirect', 'INFO', $order->get_id() );
 					}
 
-					delete_transient( $lock_key );
+					delete_option( $lock_key );
 					$this->success_with_logs( array(
 						'modeChanged' => true,
 						'flow'        => 'redirect',
@@ -245,7 +267,7 @@ class AjaxHandler {
 
 			if ( ! is_array( $result ) ) {
 				Logger::log( 'Failed to create Vipps payment', 'ERROR', $order->get_id() );
-				delete_transient( $lock_key );
+				delete_option( $lock_key );
 				wp_send_json_error( array(
 					'message'     => 'Failed to create Vipps payment.',
 					'log_entries' => Logger::flush( $order->get_id() ),
@@ -266,7 +288,7 @@ class AjaxHandler {
 			if ( 'WEB_REDIRECT' === ( $params['userFlow'] ?? '' ) ) {
 				if ( empty( $result['redirectUrl'] ) ) {
 					Logger::log( 'WEB_REDIRECT payment missing redirectUrl', 'ERROR', $order->get_id() );
-					delete_transient( $lock_key );
+					delete_option( $lock_key );
 					wp_send_json_error( array(
 						'message'     => 'Failed to create Vipps redirect payment.',
 						'log_entries' => Logger::flush( $order->get_id() ),
@@ -287,11 +309,11 @@ class AjaxHandler {
 			$order->save();
 
 			Logger::log( "Payment created — flow: {$flow}, userFlow: {$params['userFlow']}, ref: {$reference}", 'INFO', $order->get_id() );
-			delete_transient( $lock_key );
+			delete_option( $lock_key );
 			$this->success_with_logs( $response, $order->get_id() );
 
 		} finally {
-			delete_transient( $lock_key );
+			delete_option( $lock_key );
 		}
 	}
 
