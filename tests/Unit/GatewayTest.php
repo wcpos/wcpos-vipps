@@ -348,7 +348,7 @@ class GatewayTest extends TestCase {
 
 	public function test_phone_flow_defaults_to_push(): void {
 		$gateway = $this->make_gateway();
-		$this->assertSame( 'push', $gateway->get_option( 'phone_flow', 'push' ) );
+		$this->assertSame( 'push', $gateway->get_option( 'phone_flow' ) );
 	}
 
 	public function test_phone_flow_returns_redirect_when_set(): void {
