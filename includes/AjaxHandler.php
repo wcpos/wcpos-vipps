@@ -154,10 +154,9 @@ class AjaxHandler {
 					Logger::log( 'Direct Push not supported — gateway unavailable, using Web Redirect for this request only', 'WARNING', $order->get_id() );
 				} elseif ( 'yes' === $gateway->get_option( 'test_mode' ) ) {
 					Logger::log( 'Direct Push not supported in test mode — using Web Redirect for this request only', 'INFO', $order->get_id() );
-				} elseif ( $gateway->update_option( 'phone_flow', 'redirect' ) ) {
-					Logger::log( 'Direct Push not supported — switched setting to Web Redirect', 'INFO', $order->get_id() );
 				} else {
-					Logger::log( 'Direct Push not supported — failed to persist Web Redirect setting; using redirect for this request only', 'WARNING', $order->get_id() );
+					$gateway->update_option( 'phone_flow', 'redirect' );
+					Logger::log( 'Direct Push not supported — switched setting to Web Redirect', 'INFO', $order->get_id() );
 				}
 
 				$this->success_with_logs( array(
