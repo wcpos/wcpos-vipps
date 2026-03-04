@@ -16,13 +16,13 @@ class Gateway extends \WC_Payment_Gateway {
 
 		$this->init_form_fields();
 		$this->init_settings();
+		$this->form_fields['phone_flow']['description'] = $this->get_phone_flow_description();
 		$this->maybe_import_credentials();
 
 		$this->title       = $this->get_option( 'title' );
 		$this->description = $this->get_option( 'description' );
 
 		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'process_admin_options' ) );
-		add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, array( $this, 'clear_push_notice_dismissal' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_payment_scripts' ) );
 	}
 
@@ -34,7 +34,7 @@ class Gateway extends \WC_Payment_Gateway {
 				'label'       => \sprintf(
 					// Translators: %s is the link to WooCommerce POS.
 					__( 'Enable Vipps MobilePay for web checkout (not necessary for %s)', 'wcpos-vipps' ),
-					'<a href="https://wcpos.com" target="_blank">WooCommerce POS</a>'
+					'<a href="https://wcpos.com" target="_blank" rel="noopener noreferrer">WooCommerce POS</a>'
 				),
 				'description' => __( 'This enables the gateway for online store checkout. The POS uses this gateway automatically when configured.', 'wcpos-vipps' ),
 				'default'     => 'no',
@@ -71,6 +71,16 @@ class Gateway extends \WC_Payment_Gateway {
 				'type'    => 'checkbox',
 				'label'   => __( 'Automatically capture payments after authorization', 'wcpos-vipps' ),
 				'default' => 'yes',
+			),
+			'phone_flow' => array(
+				'title'       => __( 'Phone payment method', 'wcpos-vipps' ),
+				'type'        => 'select',
+				'description' => '',
+				'default'     => 'push',
+				'options'     => array(
+					'push'     => __( 'Direct Push', 'wcpos-vipps' ),
+					'redirect' => __( 'Web Redirect', 'wcpos-vipps' ),
+				),
 			),
 			'debug' => array(
 				'title'   => __( 'Debug Log', 'wcpos-vipps' ),
@@ -275,25 +285,20 @@ class Gateway extends \WC_Payment_Gateway {
 	}
 
 	/**
-	 * Get the current phone flow mode from the cached transient.
+	 * Get the description for the phone_flow setting based on current value.
 	 */
-	private function get_phone_flow_mode(): string {
-		$prefix = 'yes' === $this->get_option( 'test_mode' ) ? 'test_' : '';
-		$msn    = $this->get_option( $prefix . 'merchant_serial_number' );
-		$mode   = get_transient( 'wcpos_vipps_push_mode_' . $msn );
+	private function get_phone_flow_description(): string {
+		$mode = $this->get_option( 'phone_flow', 'push' );
 
-		return ( 'redirect' === $mode ) ? 'redirect' : 'push';
-	}
-
-	/**
-	 * Clear the push notice dismissal when settings are saved (MSN may have changed).
-	 */
-	public function clear_push_notice_dismissal(): void {
-		$prefix = 'yes' === $this->get_option( 'test_mode' ) ? 'test_' : '';
-		$msn    = $this->get_option( $prefix . 'merchant_serial_number' );
-		if ( $msn ) {
-			delete_option( 'wcpos_vipps_push_notice_dismissed_' . md5( $msn ) );
+		if ( 'redirect' === $mode ) {
+			return sprintf(
+				/* translators: %s: documentation URL */
+				__( 'Direct Push sends payment requests straight to the customer\'s Vipps app for a faster checkout. To enable it, contact Vipps and ask them to enable Direct Push on your sales unit. <a href="%s" target="_blank" rel="noopener noreferrer">Learn more</a>', 'wcpos-vipps' ),
+				'https://docs.wcpos.com/payment/custom-gateways/vipps-mobilepay#enabling-direct-push'
+			);
 		}
+
+		return __( 'Payment requests are sent directly to the customer\'s Vipps app.', 'wcpos-vipps' );
 	}
 
 	/**
@@ -328,7 +333,7 @@ class Gateway extends \WC_Payment_Gateway {
 			'orderId' => $order_id,
 			'token'   => AjaxHandler::generate_token( $order_id ),
 			'debug'         => 'yes' === $this->get_option( 'debug' ),
-			'phoneFlowMode' => $this->get_phone_flow_mode(),
+			'phoneFlowMode' => $this->get_option( 'phone_flow', 'push' ),
 			'strings'       => array(
 				'generatingQr'      => __( 'Generating QR code...', 'wcpos-vipps' ),
 				'sendingPush'       => __( 'Sending payment request...', 'wcpos-vipps' ),
