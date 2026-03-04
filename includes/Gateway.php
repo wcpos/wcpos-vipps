@@ -72,6 +72,16 @@ class Gateway extends \WC_Payment_Gateway {
 				'label'   => __( 'Automatically capture payments after authorization', 'wcpos-vipps' ),
 				'default' => 'yes',
 			),
+			'phone_flow' => array(
+				'title'       => __( 'Phone payment method', 'wcpos-vipps' ),
+				'type'        => 'select',
+				'description' => $this->get_phone_flow_description(),
+				'default'     => 'push',
+				'options'     => array(
+					'push'     => __( 'Direct Push', 'wcpos-vipps' ),
+					'redirect' => __( 'Web Redirect', 'wcpos-vipps' ),
+				),
+			),
 			'debug' => array(
 				'title'   => __( 'Debug Log', 'wcpos-vipps' ),
 				'type'    => 'checkbox',
@@ -272,6 +282,23 @@ class Gateway extends \WC_Payment_Gateway {
 		);
 
 		return true;
+	}
+
+	/**
+	 * Get the description for the phone_flow setting based on current value.
+	 */
+	private function get_phone_flow_description(): string {
+		$mode = $this->get_option( 'phone_flow', 'push' );
+
+		if ( 'redirect' === $mode ) {
+			return sprintf(
+				/* translators: %s: documentation URL */
+				__( 'Direct Push sends payment requests straight to the customer\'s Vipps app for a faster checkout. To enable it, contact Vipps and ask them to enable Direct Push on your sales unit. <a href="%s" target="_blank">Learn more</a>', 'wcpos-vipps' ),
+				'https://docs.wcpos.com/payment/custom-gateways/vipps-mobilepay#enabling-direct-push'
+			);
+		}
+
+		return __( 'Payment requests are sent directly to the customer\'s Vipps app.', 'wcpos-vipps' );
 	}
 
 	/**
