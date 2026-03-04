@@ -30,9 +30,9 @@ class AjaxHandler {
 	private function build_return_url( \WC_Order $order ): string {
 		return add_query_arg(
 			array(
-				'wcpos_vipps_return' => 1,
-				'order_id'           => $order->get_id(),
-				'token'              => self::generate_token( $order->get_id() ),
+				'wcpos_vipps_return'    => 1,
+				'wcpos_vipps_order_id'  => $order->get_id(),
+				'wcpos_vipps_token'     => self::generate_token( $order->get_id() ),
 			),
 			home_url( '/' )
 		);
@@ -108,8 +108,6 @@ class AjaxHandler {
 	 * Accepts: +47..., 0047..., 47..., or 8-digit local numbers.
 	 */
 	private function normalize_no_phone( string $phone, int $order_id ): ?string {
-		$phone_raw = $phone;
-
 		$phone = (string) preg_replace( '/\D+/', '', $phone );
 
 		if ( strpos( $phone, '0047' ) === 0 ) {
@@ -124,7 +122,8 @@ class AjaxHandler {
 			return null;
 		}
 
-		Logger::log( "Normalized phone: {$phone_raw} -> {$phone}", 'DEBUG', $order_id );
+		$masked = str_repeat( '*', max( 0, strlen( $phone ) - 4 ) ) . substr( $phone, -4 );
+		Logger::log( "Phone normalized: {$masked}", 'DEBUG', $order_id );
 		return $phone;
 	}
 
@@ -175,12 +174,14 @@ class AjaxHandler {
 
 			if ( 'push' === $flow ) {
 				if ( empty( $phone ) ) {
+					delete_transient( $lock_key );
 					wp_send_json_error( array( 'message' => 'Phone number is required for push flow.' ) );
 					return;
 				}
 
 				$normalized = $this->normalize_no_phone( $phone, $order->get_id() );
 				if ( ! $normalized ) {
+					delete_transient( $lock_key );
 					wp_send_json_error( array( 'message' => 'Invalid phone number. Use a Norwegian number, e.g. 4741234567.' ) );
 					return;
 				}
@@ -233,6 +234,7 @@ class AjaxHandler {
 						Logger::log( 'Direct Push not supported — switched setting to Web Redirect', 'INFO', $order->get_id() );
 					}
 
+					delete_transient( $lock_key );
 					$this->success_with_logs( array(
 						'modeChanged' => true,
 						'flow'        => 'redirect',
@@ -243,6 +245,7 @@ class AjaxHandler {
 
 			if ( ! is_array( $result ) ) {
 				Logger::log( 'Failed to create Vipps payment', 'ERROR', $order->get_id() );
+				delete_transient( $lock_key );
 				wp_send_json_error( array(
 					'message'     => 'Failed to create Vipps payment.',
 					'log_entries' => Logger::flush( $order->get_id() ),
@@ -263,6 +266,7 @@ class AjaxHandler {
 			if ( 'WEB_REDIRECT' === ( $params['userFlow'] ?? '' ) ) {
 				if ( empty( $result['redirectUrl'] ) ) {
 					Logger::log( 'WEB_REDIRECT payment missing redirectUrl', 'ERROR', $order->get_id() );
+					delete_transient( $lock_key );
 					wp_send_json_error( array(
 						'message'     => 'Failed to create Vipps redirect payment.',
 						'log_entries' => Logger::flush( $order->get_id() ),
@@ -283,6 +287,7 @@ class AjaxHandler {
 			$order->save();
 
 			Logger::log( "Payment created — flow: {$flow}, userFlow: {$params['userFlow']}, ref: {$reference}", 'INFO', $order->get_id() );
+			delete_transient( $lock_key );
 			$this->success_with_logs( $response, $order->get_id() );
 
 		} finally {

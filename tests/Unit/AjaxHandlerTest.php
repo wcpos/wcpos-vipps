@@ -282,7 +282,7 @@ class AjaxHandlerTest extends TestCase {
 		$url     = $this->call_build_return_url( $handler, $mock_order );
 
 		$this->assertStringContainsString( 'wcpos_vipps_return=1', $url );
-		$this->assertStringContainsString( 'order_id=42', $url );
-		$this->assertStringContainsString( 'token=', $url );
+		$this->assertStringContainsString( 'wcpos_vipps_order_id=42', $url );
+		$this->assertStringContainsString( 'wcpos_vipps_token=', $url );
 	}
 }

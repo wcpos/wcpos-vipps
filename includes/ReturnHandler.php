@@ -18,8 +18,8 @@ class ReturnHandler {
 
 	public function register_query_vars( array $vars ): array {
 		$vars[] = 'wcpos_vipps_return';
-		$vars[] = 'order_id';
-		$vars[] = 'token';
+		$vars[] = 'wcpos_vipps_order_id';
+		$vars[] = 'wcpos_vipps_token';
 		return $vars;
 	}
 
@@ -28,8 +28,8 @@ class ReturnHandler {
 			return;
 		}
 
-		$order_id = absint( get_query_var( 'order_id' ) );
-		$token    = sanitize_text_field( (string) get_query_var( 'token' ) );
+		$order_id = absint( get_query_var( 'wcpos_vipps_order_id' ) );
+		$token    = sanitize_text_field( (string) get_query_var( 'wcpos_vipps_token' ) );
 
 		if ( ! $order_id || ! $token ) {
 			status_header( 400 );
@@ -60,7 +60,7 @@ class ReturnHandler {
 
 		?>
 <!doctype html>
-<html lang="no">
+<html lang="<?php echo esc_attr( get_bloginfo( 'language' ) ); ?>">
 <head>
 	<meta charset="utf-8">
 	<meta name="robots" content="noindex,nofollow">
@@ -78,7 +78,7 @@ class ReturnHandler {
 	<div class="box">
 		<h1><?php esc_html_e( 'Payment complete', 'wcpos-vipps' ); ?></h1>
 		<p><?php esc_html_e( 'You can close this window and return to the checkout.', 'wcpos-vipps' ); ?></p>
-		<p class="muted"><?php printf( 'Order: #%s', $order_number ); ?></p>
+		<p class="muted"><?php printf( esc_html__( 'Order: #%s', 'wcpos-vipps' ), $order_number ); ?></p>
 	</div>
 	<script>
 		setTimeout(function () {
