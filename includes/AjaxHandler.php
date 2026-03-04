@@ -48,28 +48,22 @@ class AjaxHandler {
 	}
 
 	/**
-	 * Get the current merchant serial number from the gateway.
+	 * Get the gateway instance.
 	 */
-	private function get_msn(): string {
+	private function get_gateway(): ?Gateway {
 		$gateways = WC()->payment_gateways()->payment_gateways();
 		$gateway  = $gateways['wcpos_vipps'] ?? null;
 
-		if ( ! $gateway instanceof Gateway ) {
-			return '';
-		}
-
-		$prefix = 'yes' === $gateway->get_option( 'test_mode' ) ? 'test_' : '';
-		return $gateway->get_option( $prefix . 'merchant_serial_number' );
+		return $gateway instanceof Gateway ? $gateway : null;
 	}
 
 	/**
 	 * Get the gateway's Api instance.
 	 */
 	private function get_api(): ?Api {
-		$gateways = WC()->payment_gateways()->payment_gateways();
-		$gateway  = $gateways['wcpos_vipps'] ?? null;
+		$gateway = $this->get_gateway();
 
-		if ( ! $gateway instanceof Gateway ) {
+		if ( ! $gateway ) {
 			wp_send_json_error( array( 'message' => 'Gateway not available.' ) );
 			return null;
 		}
@@ -118,18 +112,15 @@ class AjaxHandler {
 				return;
 			}
 
-			$msn           = $this->get_msn();
-			$transient_key = $msn ? 'wcpos_vipps_push_mode_' . $msn : '';
-			$cached_mode   = $transient_key ? get_transient( $transient_key ) : false;
-			$use_redirect  = ( 'redirect' === $cached_mode );
+			$gateway      = $this->get_gateway();
+			$use_redirect = $gateway && 'redirect' === $gateway->get_option( 'phone_flow', 'push' );
 
 			if ( $use_redirect ) {
 				$params['userFlow'] = 'WEB_REDIRECT';
-				$params['customer'] = array( 'phoneNumber' => $phone );
 			} else {
 				$params['userFlow'] = 'PUSH_MESSAGE';
-				$params['customer'] = array( 'phoneNumber' => $phone );
 			}
+			$params['customer'] = array( 'phoneNumber' => $phone );
 		} else {
 			$params['userFlow'] = 'QR';
 			$params['qrFormat'] = array(
@@ -142,8 +133,8 @@ class AjaxHandler {
 		$api->set_order_id( $order->get_id() );
 		$result = $api->create_payment( $params );
 
-		// If PUSH_MESSAGE failed with a "not allowed" error, cache redirect mode
-		// and signal the frontend to retry — do NOT create a wasted payment here.
+		// If PUSH_MESSAGE failed with a "not allowed" error, save redirect mode
+		// to the gateway setting and signal the frontend to retry.
 		if ( ! $result && 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) ) {
 			$error_title = $api->get_last_error_title();
 
@@ -158,11 +149,12 @@ class AjaxHandler {
 				);
 
 			if ( $is_push_not_allowed ) {
-				if ( $transient_key ) {
-					set_transient( $transient_key, 'redirect', DAY_IN_SECONDS );
+				$gateway = $this->get_gateway();
+				if ( $gateway ) {
+					$gateway->update_option( 'phone_flow', 'redirect' );
 				}
 
-				Logger::log( 'PUSH_MESSAGE not supported — switching to WEB_REDIRECT for future requests', 'INFO', $order->get_id() );
+				Logger::log( 'Direct Push not supported — switched setting to Web Redirect', 'INFO', $order->get_id() );
 
 				$this->success_with_logs( array(
 					'modeChanged' => true,
@@ -178,11 +170,6 @@ class AjaxHandler {
 			$error_data['log_entries'] = Logger::flush( $order->get_id() );
 			wp_send_json_error( $error_data );
 			return;
-		}
-
-		// Cache push as supported if it worked.
-		if ( 'push' === $flow && 'PUSH_MESSAGE' === ( $params['userFlow'] ?? '' ) && ! empty( $transient_key ) ) {
-			set_transient( $transient_key, 'push', DAY_IN_SECONDS );
 		}
 
 		$response = array(
