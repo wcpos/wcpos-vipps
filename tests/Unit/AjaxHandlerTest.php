@@ -29,9 +29,10 @@ class AjaxHandlerTest extends TestCase {
 			'get_transient'    => false,
 			'set_transient'    => null,
 			'delete_transient' => null,
-			'get_option'       => false,
-			'add_option'       => true,
-			'delete_option'    => true,
+			'get_option'          => false,
+			'add_option'          => true,
+			'delete_option'       => true,
+			'wp_generate_uuid4'   => 'test-uuid-1234',
 		) );
 
 		$mock_logger = \Mockery::mock();
@@ -259,6 +260,14 @@ class AjaxHandlerTest extends TestCase {
 	public function test_redact_url_token_percent_encoded(): void {
 		$handler = new AjaxHandler();
 		$url     = 'https://example.com/?foo=bar&token%3Dsecret123';
+		$result  = $this->call_redact_url_token( $handler, $url );
+
+		$this->assertStringNotContainsString( 'secret123', $result );
+	}
+
+	public function test_redact_url_token_percent_encoded_prefixed_token(): void {
+		$handler = new AjaxHandler();
+		$url     = 'https://example.com/?foo=bar&wcpos_vipps_token%3Dsecret123';
 		$result  = $this->call_redact_url_token( $handler, $url );
 
 		$this->assertStringNotContainsString( 'secret123', $result );

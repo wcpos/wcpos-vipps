@@ -147,6 +147,17 @@ class AjaxHandler {
 	}
 
 	/**
+	 * Release the payment-creation lock only if this request owns it.
+	 */
+	private function release_lock( string $lock_key, string $lock_uuid ): void {
+		$stored = (string) get_option( $lock_key );
+		$parts  = explode( ':', $stored, 2 );
+		if ( isset( $parts[1] ) && $parts[1] === $lock_uuid ) {
+			$this->release_lock( $lock_key, $lock_uuid );
+		}
+	}
+
+	/**
 	 * Create a Vipps payment (QR or push).
 	 */
 	public function ajax_create_payment(): void {
@@ -160,15 +171,20 @@ class AjaxHandler {
 			return;
 		}
 
-		$lock_key = 'wcpos_vipps_create_lock_' . $order->get_id();
-		$now      = time();
-		$acquired = add_option( $lock_key, (string) $now, '', 'no' );
+		$lock_key  = 'wcpos_vipps_create_lock_' . $order->get_id();
+		$lock_uuid = wp_generate_uuid4();
+		$now       = time();
+		$lock_val  = $now . ':' . $lock_uuid;
+		$acquired  = add_option( $lock_key, $lock_val, '', 'no' );
 
 		if ( ! $acquired ) {
-			$created_at = (int) get_option( $lock_key );
+			$existing   = (string) get_option( $lock_key );
+			$parts      = explode( ':', $existing, 2 );
+			$created_at = (int) ( $parts[0] ?? 0 );
+
 			if ( $created_at > 0 && ( $now - $created_at ) > 30 ) {
 				delete_option( $lock_key );
-				$acquired = add_option( $lock_key, (string) $now, '', 'no' );
+				$acquired = add_option( $lock_key, $lock_val, '', 'no' );
 			}
 		}
 
@@ -201,14 +217,14 @@ class AjaxHandler {
 
 			if ( 'push' === $flow ) {
 				if ( empty( $phone ) ) {
-					delete_option( $lock_key );
+					$this->release_lock( $lock_key, $lock_uuid );
 					wp_send_json_error( array( 'message' => 'Phone number is required for push flow.' ) );
 					return;
 				}
 
 				$normalized = $this->normalize_no_phone( $phone, $order->get_id() );
 				if ( ! $normalized ) {
-					delete_option( $lock_key );
+					$this->release_lock( $lock_key, $lock_uuid );
 					wp_send_json_error( array( 'message' => 'Invalid phone number. Use a Norwegian number, e.g. 4741234567.' ) );
 					return;
 				}
@@ -256,7 +272,7 @@ class AjaxHandler {
 						Logger::log( 'Direct Push not supported — switched setting to Web Redirect', 'INFO', $order->get_id() );
 					}
 
-					delete_option( $lock_key );
+					$this->release_lock( $lock_key, $lock_uuid );
 					$this->success_with_logs( array(
 						'modeChanged' => true,
 						'flow'        => 'redirect',
@@ -267,7 +283,7 @@ class AjaxHandler {
 
 			if ( ! is_array( $result ) ) {
 				Logger::log( 'Failed to create Vipps payment', 'ERROR', $order->get_id() );
-				delete_option( $lock_key );
+				$this->release_lock( $lock_key, $lock_uuid );
 				wp_send_json_error( array(
 					'message'     => 'Failed to create Vipps payment.',
 					'log_entries' => Logger::flush( $order->get_id() ),
@@ -288,7 +304,7 @@ class AjaxHandler {
 			if ( 'WEB_REDIRECT' === ( $params['userFlow'] ?? '' ) ) {
 				if ( empty( $result['redirectUrl'] ) ) {
 					Logger::log( 'WEB_REDIRECT payment missing redirectUrl', 'ERROR', $order->get_id() );
-					delete_option( $lock_key );
+					$this->release_lock( $lock_key, $lock_uuid );
 					wp_send_json_error( array(
 						'message'     => 'Failed to create Vipps redirect payment.',
 						'log_entries' => Logger::flush( $order->get_id() ),
@@ -309,11 +325,11 @@ class AjaxHandler {
 			$order->save();
 
 			Logger::log( "Payment created — flow: {$flow}, userFlow: {$params['userFlow']}, ref: {$reference}", 'INFO', $order->get_id() );
-			delete_option( $lock_key );
+			$this->release_lock( $lock_key, $lock_uuid );
 			$this->success_with_logs( $response, $order->get_id() );
 
 		} finally {
-			delete_option( $lock_key );
+			$this->release_lock( $lock_key, $lock_uuid );
 		}
 	}
 
