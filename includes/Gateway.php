@@ -34,7 +34,7 @@ class Gateway extends \WC_Payment_Gateway {
 				'label'       => \sprintf(
 					// Translators: %s is the link to WooCommerce POS.
 					__( 'Enable Vipps MobilePay for web checkout (not necessary for %s)', 'wcpos-vipps' ),
-					'<a href="https://wcpos.com" target="_blank">WooCommerce POS</a>'
+					'<a href="https://wcpos.com" target="_blank" rel="noopener noreferrer">WooCommerce POS</a>'
 				),
 				'description' => __( 'This enables the gateway for online store checkout. The POS uses this gateway automatically when configured.', 'wcpos-vipps' ),
 				'default'     => 'no',
@@ -293,7 +293,7 @@ class Gateway extends \WC_Payment_Gateway {
 		if ( 'redirect' === $mode ) {
 			return sprintf(
 				/* translators: %s: documentation URL */
-				__( 'Direct Push sends payment requests straight to the customer\'s Vipps app for a faster checkout. To enable it, contact Vipps and ask them to enable Direct Push on your sales unit. <a href="%s" target="_blank">Learn more</a>', 'wcpos-vipps' ),
+				__( 'Direct Push sends payment requests straight to the customer\'s Vipps app for a faster checkout. To enable it, contact Vipps and ask them to enable Direct Push on your sales unit. <a href="%s" target="_blank" rel="noopener noreferrer">Learn more</a>', 'wcpos-vipps' ),
 				'https://docs.wcpos.com/payment/custom-gateways/vipps-mobilepay#enabling-direct-push'
 			);
 		}
