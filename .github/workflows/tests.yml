@@ -3,7 +3,25 @@ name: Tests
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'languages/**'
+      - 'LICENSE'
+      - '.editorconfig'
+      - '.gitignore'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'languages/**'
+      - 'LICENSE'
+      - '.editorconfig'
+      - '.gitignore'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   php:
