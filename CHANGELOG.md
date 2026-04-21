@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.1] - 2026-04-21
+
+### Changed
+- Add a GitHub `Update URI` header so WordPress can identify the plugin for custom update checks
+- Bump the plugin version to `0.5.1` for the update metadata release
+
 ## [0.5.0] - 2026-03-04
 
 ### Added
