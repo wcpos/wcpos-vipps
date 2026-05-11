@@ -241,10 +241,27 @@ class AjaxHandlerTest extends TestCase {
 			return '1710000000:other-request-uuid';
 		} );
 
+		$wpdb = new class() {
+			public $options = 'wp_options';
+
+			public $delete_calls = array();
+
+			public function delete( $table, $where, $format ) {
+				$this->delete_calls[] = compact( 'table', 'where', 'format' );
+
+				return 1;
+			}
+		};
+		$GLOBALS['wpdb'] = $wpdb;
+
 		Functions\expect( 'delete_option' )
+			->never();
+		Functions\expect( 'wp_cache_delete' )
 			->never();
 
 		$this->call_release_lock( $handler, $lock_key, $lock_uuid );
+
+		$this->assertSame( array(), $wpdb->delete_calls );
 	}
 
 	// ---------------------------------------------------------------
