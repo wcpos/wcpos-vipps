@@ -31,7 +31,6 @@ class AjaxHandlerTest extends TestCase {
 			'delete_transient' => null,
 			'get_option'          => false,
 			'add_option'          => true,
-			'delete_option'       => true,
 			'wp_generate_uuid4'   => 'test-uuid-1234',
 		) );
 
@@ -59,6 +58,12 @@ class AjaxHandlerTest extends TestCase {
 		$method = new \ReflectionMethod( AjaxHandler::class, 'validate_request' );
 		$method->setAccessible( true );
 		return $method->invoke( $handler );
+	}
+
+	private function call_release_lock( AjaxHandler $handler, string $lock_key, string $lock_uuid ): void {
+		$method = new \ReflectionMethod( AjaxHandler::class, 'release_lock' );
+		$method->setAccessible( true );
+		$method->invoke( $handler, $lock_key, $lock_uuid );
 	}
 
 	/**
@@ -173,6 +178,73 @@ class AjaxHandlerTest extends TestCase {
 		$result  = $this->call_validate_request( $handler );
 
 		$this->assertSame( $mock_order, $result );
+	}
+
+	// ---------------------------------------------------------------
+	// release_lock
+	// ---------------------------------------------------------------
+
+	public function test_release_lock_deletes_option_when_uuid_matches(): void {
+		$handler   = new AjaxHandler();
+		$lock_key  = 'wcpos_vipps_create_lock_42';
+		$lock_uuid = 'owned-lock-uuid';
+
+		$get_option_calls = 0;
+		Functions\when( 'get_option' )->alias( function ( $key ) use ( $lock_key, $lock_uuid, &$get_option_calls ) {
+			$this->assertSame( $lock_key, $key );
+			++$get_option_calls;
+
+			return 1 === $get_option_calls ? '1710000000:' . $lock_uuid : '1710000000:other-request-uuid';
+		} );
+
+		$wpdb = new class() {
+			public $options = 'wp_options';
+
+			public $delete_calls = array();
+
+			public function delete( $table, $where, $format ) {
+				$this->delete_calls[] = compact( 'table', 'where', 'format' );
+
+				return 1;
+			}
+		};
+		$GLOBALS['wpdb'] = $wpdb;
+
+		Functions\expect( 'wp_cache_delete' )
+			->once()
+			->with( $lock_key, 'options' )
+			->andReturn( true );
+
+		$this->call_release_lock( $handler, $lock_key, $lock_uuid );
+
+		$this->assertSame( 1, $get_option_calls );
+		$this->assertSame( array(
+			array(
+				'table'  => 'wp_options',
+				'where'  => array(
+					'option_name'  => $lock_key,
+					'option_value' => '1710000000:' . $lock_uuid,
+				),
+				'format' => array( '%s', '%s' ),
+			),
+		), $wpdb->delete_calls );
+	}
+
+	public function test_release_lock_keeps_option_when_uuid_does_not_match(): void {
+		$handler   = new AjaxHandler();
+		$lock_key  = 'wcpos_vipps_create_lock_42';
+		$lock_uuid = 'current-request-uuid';
+
+		Functions\when( 'get_option' )->alias( function ( $key ) use ( $lock_key ) {
+			$this->assertSame( $lock_key, $key );
+
+			return '1710000000:other-request-uuid';
+		} );
+
+		Functions\expect( 'delete_option' )
+			->never();
+
+		$this->call_release_lock( $handler, $lock_key, $lock_uuid );
 	}
 
 	// ---------------------------------------------------------------

@@ -152,8 +152,23 @@ class AjaxHandler {
 	private function release_lock( string $lock_key, string $lock_uuid ): void {
 		$stored = (string) get_option( $lock_key );
 		$parts  = explode( ':', $stored, 2 );
-		if ( isset( $parts[1] ) && $parts[1] === $lock_uuid ) {
-			$this->release_lock( $lock_key, $lock_uuid );
+		if ( ! isset( $parts[1] ) || $parts[1] !== $lock_uuid ) {
+			return;
+		}
+
+		global $wpdb;
+
+		$deleted = $wpdb->delete(
+			$wpdb->options,
+			array(
+				'option_name'  => $lock_key,
+				'option_value' => $stored,
+			),
+			array( '%s', '%s' )
+		);
+
+		if ( $deleted ) {
+			wp_cache_delete( $lock_key, 'options' );
 		}
 	}
 
