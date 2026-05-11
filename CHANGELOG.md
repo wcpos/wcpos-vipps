@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.2] - 2026-05-11
+
+### Fixed
+- Fix payment-creation lock release to avoid infinite recursion and PHP memory exhaustion after successful payment creation.
+- Release only the matching lock value so stale requests cannot delete another request's newer lock.
+
 ## [0.5.1] - 2026-04-21
 
 ### Changed
