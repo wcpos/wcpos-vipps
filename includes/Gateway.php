@@ -4,7 +4,10 @@ namespace WCPOS\WooCommercePOS\Vipps;
 
 class Gateway extends \WC_Payment_Gateway {
 
+	private const COMPLETION_LOCK_TTL = 300;
+
 	private ?Api $api = null;
+	private ?string $last_completion_error = null;
 
 	public function __construct() {
 		$this->id                 = 'wcpos_vipps';
@@ -220,35 +223,151 @@ class Gateway extends \WC_Payment_Gateway {
 			return array( 'result' => 'failure' );
 		}
 
-		$status    = $order->get_meta( '_wcpos_vipps_status' );
-		$reference = $order->get_meta( '_wcpos_vipps_reference' );
+		$status    = (string) $order->get_meta( '_wcpos_vipps_status' );
+		$reference = (string) $order->get_meta( '_wcpos_vipps_reference' );
 
-		// Payment not yet completed — redirect to order-pay page
-		if ( 'AUTHORIZED' !== $status ) {
+		if ( $order->is_paid() ) {
+			return array(
+				'result'   => 'success',
+				'redirect' => $this->get_return_url( $order ),
+			);
+		}
+
+		// Payment not yet completed — redirect to order-pay page.
+		if ( ! in_array( $status, array( 'AUTHORIZED', 'CAPTURED' ), true ) ) {
 			return array(
 				'result'   => 'success',
 				'redirect' => $order->get_checkout_payment_url( true ),
 			);
 		}
 
-		// Auto-capture if enabled
-		if ( 'yes' === $this->get_option( 'auto_capture' ) ) {
-			$amount = array(
-				'currency' => $order->get_currency(),
-				'value'    => absint( round( $order->get_total() * 100 ) ),
-			);
-			$this->get_api()->capture_payment( $reference, $amount );
+		if ( ! $this->complete_paid_order( $order, $reference, $status ) ) {
+			wc_add_notice( __( 'Vipps payment was accepted, but the order could not be completed. Please try again.', 'wcpos-vipps' ), 'error' );
+			return array( 'result' => 'failure' );
 		}
-
-		$order->payment_complete( $reference );
-		$order->add_order_note(
-			sprintf( __( 'Vipps MobilePay payment completed. Reference: %s', 'wcpos-vipps' ), $reference )
-		);
 
 		return array(
 			'result'   => 'success',
 			'redirect' => $this->get_return_url( $order ),
 		);
+	}
+
+	/**
+	 * Complete a WooCommerce order once Vipps confirms payment.
+	 */
+	public function complete_paid_order( \WC_Order $order, string $reference, string $state ): bool {
+		$this->last_completion_error = null;
+
+		if ( $order->is_paid() ) {
+			return true;
+		}
+
+		$lock_key = 'wcpos_vipps_complete_lock_' . $order->get_id();
+		$lock_val = time() . ':' . wp_generate_uuid4();
+		$acquired = add_option( $lock_key, $lock_val, '', 'no' );
+
+		if ( ! $acquired ) {
+			$existing = get_option( $lock_key );
+			$existing = is_string( $existing ) ? $existing : '';
+			$parts    = explode( ':', $existing, 2 );
+			$created  = (int) ( $parts[0] ?? 0 );
+
+			if ( $created > 0 && ( time() - $created ) > self::COMPLETION_LOCK_TTL && $this->delete_completion_lock( $lock_key, $existing ) ) {
+				$acquired = add_option( $lock_key, $lock_val, '', 'no' );
+			}
+		}
+
+		if ( ! $acquired ) {
+			Logger::log( 'Order completion already in progress', 'INFO', $order->get_id() );
+			return $order->is_paid();
+		}
+
+		try {
+			if ( $order->is_paid() ) {
+				return true;
+			}
+
+			// Auto-capture only authorized payments; captured payments are already settled.
+			$already_captured = 'yes' === (string) $order->get_meta( '_wcpos_vipps_capture_completed' );
+			if ( 'AUTHORIZED' === $state && 'yes' === $this->get_option( 'auto_capture' ) && ! $already_captured ) {
+				$amount = array(
+					'currency' => $order->get_currency(),
+					'value'    => absint( round( $order->get_total() * 100 ) ),
+				);
+
+				$idempotency_key = (string) $order->get_meta( '_wcpos_vipps_capture_idempotency_key' );
+				if ( '' === $idempotency_key ) {
+					$idempotency_key = wp_generate_uuid4();
+					$order->update_meta_data( '_wcpos_vipps_capture_idempotency_key', $idempotency_key );
+					$order->save();
+				}
+
+				if ( ! is_array( $this->get_api()->capture_payment( $reference, $amount, $idempotency_key ) ) ) {
+					$this->last_completion_error = __( 'Vipps payment was accepted, but capture failed. Please try again.', 'wcpos-vipps' );
+					Logger::log( 'Vipps capture failed; order not completed', 'ERROR', $order->get_id() );
+					return false;
+				}
+
+				$order->update_meta_data( '_wcpos_vipps_capture_completed', 'yes' );
+				$order->update_meta_data( '_wcpos_vipps_status', 'CAPTURED' );
+				$order->save();
+			}
+
+			if ( false === $order->payment_complete( $reference ) ) {
+				$this->last_completion_error = __( 'Vipps payment was accepted, but WooCommerce could not complete the order. Please try again.', 'wcpos-vipps' );
+				Logger::log( 'WooCommerce payment_complete failed', 'ERROR', $order->get_id() );
+				return false;
+			}
+
+			$order->add_order_note(
+				sprintf( __( 'Vipps MobilePay payment completed. Reference: %s', 'wcpos-vipps' ), $reference )
+			);
+
+			return true;
+		} finally {
+			$this->release_completion_lock( $lock_key, $lock_val );
+		}
+	}
+
+	/**
+	 * Get the last terminal completion error, if order completion failed.
+	 */
+	public function get_last_completion_error(): ?string {
+		return $this->last_completion_error;
+	}
+
+	/**
+	 * Release the order-completion lock only if this request still owns it.
+	 */
+	private function release_completion_lock( string $lock_key, string $lock_val ): void {
+		$stored = get_option( $lock_key );
+		if ( ! is_string( $stored ) || $stored !== $lock_val ) {
+			return;
+		}
+
+		$this->delete_completion_lock( $lock_key, $lock_val );
+	}
+
+	/**
+	 * Delete a completion lock only when the stored value still matches.
+	 */
+	private function delete_completion_lock( string $lock_key, string $lock_val ): bool {
+		global $wpdb;
+
+		$deleted = $wpdb->delete(
+			$wpdb->options,
+			array(
+				'option_name'  => $lock_key,
+				'option_value' => $lock_val,
+			),
+			array( '%s', '%s' )
+		);
+
+		if ( $deleted ) {
+			wp_cache_delete( $lock_key, 'options' );
+		}
+
+		return (bool) $deleted;
 	}
 
 	/**

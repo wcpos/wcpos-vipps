@@ -28,6 +28,8 @@ export interface CreatePaymentResponse {
 
 export interface CheckStatusResponse {
   state: string;
+  completed?: boolean;
+  redirectUrl?: string;
 }
 
 export interface AjaxResponse<T> {

@@ -385,11 +385,37 @@ class AjaxHandler {
 		$order->save();
 
 		$completed = in_array( $state, array( 'CAPTURED', 'AUTHORIZED' ), true );
-
-		$this->success_with_logs( array(
+		$response  = array(
 			'state'     => $state,
 			'completed' => $completed,
-		), $order->get_id() );
+		);
+
+		if ( $completed ) {
+			$gateway = $this->get_gateway();
+			if ( $gateway && $gateway->complete_paid_order( $order, $reference, $state ) ) {
+				$response['redirectUrl'] = $gateway->get_return_url( $order );
+			} elseif ( $gateway && $gateway->get_last_completion_error() ) {
+				wp_send_json_error( array(
+					'message'     => $gateway->get_last_completion_error(),
+					'state'       => $state,
+					'completed'   => false,
+					'log_entries' => Logger::flush( $order->get_id() ),
+				) );
+				return;
+			} elseif ( $gateway ) {
+				$response['completed'] = false;
+			} else {
+				wp_send_json_error( array(
+					'message'     => 'Vipps payment was accepted, but the gateway could not complete the order.',
+					'state'       => $state,
+					'completed'   => false,
+					'log_entries' => Logger::flush( $order->get_id() ),
+				) );
+				return;
+			}
+		}
+
+		$this->success_with_logs( $response, $order->get_id() );
 	}
 
 	/**

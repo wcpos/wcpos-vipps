@@ -22,10 +22,12 @@ class GatewayTest extends TestCase {
 			'esc_html_e'   => function ( $text ) { echo $text; },
 			'esc_attr_e'   => function ( $text ) { echo $text; },
 			'add_action'   => null,
-			'get_option'   => function () { return array(); },
 			'apply_filters' => true,
 			'absint'       => function ( $v ) { return abs( intval( $v ) ); },
 			'delete_option'  => null,
+			'add_option'     => true,
+			'get_option'     => function () { return array(); },
+			'wp_generate_uuid4' => 'test-complete-uuid',
 		) );
 
 		$mock_logger = \Mockery::mock();
@@ -74,9 +76,23 @@ class GatewayTest extends TestCase {
 			return $meta[ $key ] ?? '';
 		} );
 
+		$order->shouldReceive( 'get_id' )
+			->zeroOrMoreTimes()
+			->andReturn( $overrides['id'] ?? 123 );
+
+		$order->shouldReceive( 'is_paid' )
+			->zeroOrMoreTimes()
+			->andReturn( $overrides['is_paid'] ?? false );
+
 		$order->shouldReceive( 'get_checkout_payment_url' )
 			->zeroOrMoreTimes()
 			->andReturn( 'http://example.com/checkout/order-pay/123/' );
+
+		$order->shouldReceive( 'update_meta_data' )
+			->zeroOrMoreTimes();
+
+		$order->shouldReceive( 'save' )
+			->zeroOrMoreTimes();
 
 		$order->shouldReceive( 'get_currency' )
 			->zeroOrMoreTimes()
@@ -228,7 +244,7 @@ class GatewayTest extends TestCase {
 			'_wcpos_vipps_reference' => 'ref-456',
 		) );
 
-		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-456' );
+		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-456' )->andReturn( true );
 		$order->shouldReceive( 'add_order_note' )->once();
 
 		Functions\expect( 'wc_get_order' )->once()->with( 99 )->andReturn( $order );
@@ -236,7 +252,8 @@ class GatewayTest extends TestCase {
 		$mock_api = \Mockery::mock( Api::class );
 		$mock_api->shouldReceive( 'capture_payment' )
 			->once()
-			->with( 'ref-456', array( 'currency' => 'NOK', 'value' => 10000 ) );
+			->with( 'ref-456', array( 'currency' => 'NOK', 'value' => 10000 ), 'test-complete-uuid' )
+			->andReturn( array() );
 
 		$gateway = $this->make_gateway( array( 'auto_capture' => 'yes' ) );
 		$this->inject_api( $gateway, $mock_api );
@@ -253,7 +270,7 @@ class GatewayTest extends TestCase {
 			'_wcpos_vipps_reference' => 'ref-789',
 		) );
 
-		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-789' );
+		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-789' )->andReturn( true );
 		$order->shouldReceive( 'add_order_note' )->once();
 
 		Functions\expect( 'wc_get_order' )->once()->with( 50 )->andReturn( $order );
@@ -268,6 +285,68 @@ class GatewayTest extends TestCase {
 
 		$this->assertSame( 'success', $result['result'] );
 		$this->assertSame( 'http://example.com/thank-you/', $result['redirect'] );
+	}
+
+	public function test_process_payment_completes_when_already_captured(): void {
+		$order = $this->make_order_mock( array(
+			'_wcpos_vipps_status'    => 'CAPTURED',
+			'_wcpos_vipps_reference' => 'ref-captured',
+		) );
+
+		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-captured' )->andReturn( true );
+		$order->shouldReceive( 'add_order_note' )->once();
+
+		Functions\expect( 'wc_get_order' )->once()->with( 51 )->andReturn( $order );
+
+		$mock_api = \Mockery::mock( Api::class );
+		$mock_api->shouldNotReceive( 'capture_payment' );
+
+		$gateway = $this->make_gateway( array( 'auto_capture' => 'yes' ) );
+		$this->inject_api( $gateway, $mock_api );
+
+		$result = $gateway->process_payment( 51 );
+
+		$this->assertSame( 'success', $result['result'] );
+		$this->assertSame( 'http://example.com/thank-you/', $result['redirect'] );
+	}
+
+	public function test_complete_paid_order_does_not_capture_when_completion_lock_is_held(): void {
+		$order = $this->make_order_mock( array(), array( 'id' => 321 ) );
+		$order->shouldReceive( 'payment_complete' )->never();
+		$order->shouldReceive( 'add_order_note' )->never();
+
+		Functions\when( 'add_option' )->justReturn( false );
+		Functions\when( 'get_option' )->alias( function ( $key, $default = null ) {
+			if ( 'wcpos_vipps_complete_lock_321' === $key ) {
+				return time() . ':other-request';
+			}
+
+			return $default ?? array();
+		} );
+
+		$mock_api = \Mockery::mock( Api::class );
+		$mock_api->shouldNotReceive( 'capture_payment' );
+
+		$gateway = $this->make_gateway( array( 'auto_capture' => 'yes' ) );
+		$this->inject_api( $gateway, $mock_api );
+
+		$this->assertFalse( $gateway->complete_paid_order( $order, 'ref-locked', 'AUTHORIZED' ) );
+	}
+
+	public function test_complete_paid_order_does_not_recapture_when_capture_was_recorded(): void {
+		$order = $this->make_order_mock( array(
+			'_wcpos_vipps_capture_completed' => 'yes',
+		) );
+		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-already-captured' )->andReturn( true );
+		$order->shouldReceive( 'add_order_note' )->once();
+
+		$mock_api = \Mockery::mock( Api::class );
+		$mock_api->shouldNotReceive( 'capture_payment' );
+
+		$gateway = $this->make_gateway( array( 'auto_capture' => 'yes' ) );
+		$this->inject_api( $gateway, $mock_api );
+
+		$this->assertTrue( $gateway->complete_paid_order( $order, 'ref-already-captured', 'AUTHORIZED' ) );
 	}
 
 	public function test_process_payment_returns_failure_for_missing_order(): void {

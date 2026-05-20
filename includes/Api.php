@@ -102,10 +102,10 @@ class Api {
 	/**
 	 * Capture an authorized payment.
 	 */
-	public function capture_payment( string $reference, array $amount ): ?array {
+	public function capture_payment( string $reference, array $amount, ?string $idempotency_key = null ): ?array {
 		return $this->request( 'POST', '/epayment/v1/payments/' . $reference . '/capture', array(
 			'modificationAmount' => $amount,
-		) );
+		), $idempotency_key );
 	}
 
 	/**
@@ -127,7 +127,7 @@ class Api {
 	/**
 	 * Make an authenticated API request.
 	 */
-	private function request( string $method, string $endpoint, ?array $data = null ): ?array {
+	private function request( string $method, string $endpoint, ?array $data = null, ?string $idempotency_key = null ): ?array {
 		$this->last_error_title = null;
 
 		if ( ! $this->access_token && ! $this->get_access_token() ) {
@@ -142,7 +142,7 @@ class Api {
 				'Ocp-Apim-Subscription-Key'   => $this->subscription_key,
 				'Merchant-Serial-Number'      => $this->merchant_serial_number,
 				'Content-Type'                => 'application/json',
-				'Idempotency-Key'             => wp_generate_uuid4(),
+				'Idempotency-Key'             => $idempotency_key ?: wp_generate_uuid4(),
 				'Vipps-System-Name'           => 'WooCommerce POS',
 				'Vipps-System-Plugin-Name'    => 'wcpos-vipps',
 				'Vipps-System-Plugin-Version' => WCPOS_VIPPS_VERSION,

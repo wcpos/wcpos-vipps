@@ -100,10 +100,13 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug, phoneFlowMode 
 
         const vippsState = response.data.state;
 
-        if (vippsState === 'AUTHORIZED') {
+        if (response.data.completed) {
           stopPolling();
           setState('authorized');
-          appendLog('[CLIENT] Payment authorized — submitting order');
+          appendLog(`[CLIENT] Payment ${vippsState.toLowerCase()} — redirecting to receipt`);
+          if (response.data.redirectUrl) {
+            window.location.assign(response.data.redirectUrl);
+          }
         } else if (vippsState === 'ABORTED' || vippsState === 'TERMINATED') {
           stopPolling();
           setState('cancelled');

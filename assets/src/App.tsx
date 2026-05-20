@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useVippsPayment } from './hooks/useVippsPayment';
 import { PhoneInput } from './components/PhoneInput';
 import { QrDisplay } from './components/QrDisplay';
@@ -21,25 +21,6 @@ export function App({ config }: AppProps) {
     debug: config.debug,
     phoneFlowMode: config.phoneFlowMode,
   });
-
-  // Auto-submit the WC form when payment is authorized.
-  useEffect(() => {
-    if (state !== 'authorized') return;
-
-    const form = document.querySelector<HTMLFormElement>('form#order_review, form.checkout');
-    if (!form) return;
-
-    const placeOrderButton = form.querySelector<HTMLButtonElement>(
-      '#place_order, button[name="woocommerce_checkout_place_order"]'
-    );
-    if (typeof form.requestSubmit === 'function') {
-      form.requestSubmit(placeOrderButton ?? undefined);
-    } else if (placeOrderButton) {
-      placeOrderButton.click();
-    } else {
-      form.submit();
-    }
-  }, [state]);
 
   return (
     <>
