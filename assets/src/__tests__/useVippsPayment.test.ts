@@ -94,7 +94,7 @@ describe('useVippsPayment', () => {
 
     vi.mocked(api.checkStatus).mockResolvedValue({
       success: true,
-      data: { state: 'AUTHORIZED' },
+      data: { state: 'AUTHORIZED', completed: true },
     });
 
     const { result } = renderHook(() => useVippsPayment(mockConfig));
@@ -110,6 +110,31 @@ describe('useVippsPayment', () => {
     });
 
     expect(result.current.state).toBe('authorized');
+  });
+
+  it('polls and transitions to authorized when backend marks payment completed', async () => {
+    vi.mocked(api.createPayment).mockResolvedValue({
+      success: true,
+      data: { reference: 'ref-captured', flow: 'push' },
+    });
+
+    vi.mocked(api.checkStatus).mockResolvedValue({
+      success: true,
+      data: { state: 'CAPTURED', completed: true },
+    });
+
+    const { result } = renderHook(() => useVippsPayment(mockConfig));
+
+    await act(async () => {
+      result.current.sendPush('4712345678');
+    });
+
+    await act(async () => {
+      await vi.advanceTimersToNextTimerAsync();
+    });
+
+    expect(result.current.state).toBe('authorized');
+    expect(result.current.logEntries.some((e) => e.includes('Payment captured'))).toBe(true);
   });
 
   it('transitions to cancelled on ABORTED', async () => {

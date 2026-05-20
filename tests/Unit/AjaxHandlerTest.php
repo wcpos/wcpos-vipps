@@ -7,6 +7,8 @@ use Brain\Monkey\Functions;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 use PHPUnit\Framework\TestCase;
 use WCPOS\WooCommercePOS\Vipps\AjaxHandler;
+use WCPOS\WooCommercePOS\Vipps\Api;
+use WCPOS\WooCommercePOS\Vipps\Gateway;
 
 class AjaxHandlerTest extends TestCase {
 
@@ -23,6 +25,7 @@ class AjaxHandlerTest extends TestCase {
 			'apply_filters'       => true,
 			'wp_salt'             => 'fixed_salt_for_testing',
 			'wp_hash'             => 'md5',
+			'__'                  => function ( $text ) { return $text; },
 		) );
 
 		Functions\stubs( array(
@@ -32,6 +35,7 @@ class AjaxHandlerTest extends TestCase {
 			'get_option'          => false,
 			'add_option'          => true,
 			'wp_generate_uuid4'   => 'test-uuid-1234',
+			'delete_option'       => null,
 		) );
 
 		$mock_logger = \Mockery::mock();
@@ -71,6 +75,13 @@ class AjaxHandlerTest extends TestCase {
 	 * logic the class will use with our stubs (wp_salt returns
 	 * a fixed string, wp_hash delegates to md5).
 	 */
+
+	private function inject_api( Gateway $gateway, $mock_api ): void {
+		$ref = new \ReflectionProperty( Gateway::class, 'api' );
+		$ref->setAccessible( true );
+		$ref->setValue( $gateway, $mock_api );
+	}
+
 	private function expected_token( int $order_id ): string {
 		$data = 'wcpos_vipps_' . $order_id . 'fixed_salt_for_testing';
 		return substr( md5( $data ), 0, 10 );
@@ -402,4 +413,159 @@ class AjaxHandlerTest extends TestCase {
 		$this->assertStringContainsString( 'wcpos_vipps_order_id=42', $url );
 		$this->assertStringContainsString( 'wcpos_vipps_token=', $url );
 	}
+
+
+	// ---------------------------------------------------------------
+	// ajax_check_status
+	// ---------------------------------------------------------------
+
+	public function test_ajax_check_status_completes_order_when_authorized(): void {
+		$order_id = 42;
+		$token    = $this->expected_token( $order_id );
+
+		$_POST = array(
+			'order_id' => (string) $order_id,
+			'token'    => $token,
+		);
+
+		$order = \Mockery::mock( 'WC_Order' );
+		$order->shouldReceive( 'get_id' )->andReturn( $order_id );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_reference' )->andReturn( 'ref-123' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_completed' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_completed_reference' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_idempotency_key' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_idempotency_reference' )->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_status', 'AUTHORIZED' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_key', 'test-uuid-1234' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_reference', 'ref-123' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_completed', 'yes' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_completed_reference', 'ref-123' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_status', 'CAPTURED' );
+		$order->shouldReceive( 'save' )->times( 3 );
+		$order->shouldReceive( 'is_paid' )->twice()->andReturn( false );
+		$order->shouldReceive( 'get_currency' )->once()->andReturn( 'NOK' );
+		$order->shouldReceive( 'get_total' )->once()->andReturn( 100.00 );
+		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-123' )->andReturn( true );
+		$order->shouldReceive( 'add_order_note' )->once();
+
+		Functions\expect( 'wc_get_order' )->once()->with( $order_id )->andReturn( $order );
+
+		$api = \Mockery::mock( Api::class );
+		$api->shouldReceive( 'set_order_id' )->once()->with( $order_id );
+		$api->shouldReceive( 'get_payment' )->once()->with( 'ref-123' )->andReturn( array( 'state' => 'AUTHORIZED' ) );
+		$api->shouldReceive( 'capture_payment' )
+			->once()
+			->with( 'ref-123', array( 'currency' => 'NOK', 'value' => 10000 ), 'test-uuid-1234' )
+			->andReturn( array() );
+
+		$gateway = new Gateway();
+		$gateway->update_option( 'auto_capture', 'yes' );
+		$this->inject_api( $gateway, $api );
+
+		$wc = new class( $gateway ) {
+			private $gateway;
+
+			public function __construct( $gateway ) {
+				$this->gateway = $gateway;
+			}
+
+			public function payment_gateways() {
+				return new class( $this->gateway ) {
+					private $gateway;
+
+					public function __construct( $gateway ) {
+						$this->gateway = $gateway;
+					}
+
+					public function payment_gateways() {
+						return array( 'wcpos_vipps' => $this->gateway );
+					}
+				};
+			}
+		};
+
+		Functions\expect( 'WC' )->twice()->andReturn( $wc );
+		Functions\expect( 'wp_send_json_success' )->once()->with( \Mockery::on( function ( $data ) {
+			return 'AUTHORIZED' === $data['state']
+				&& true === $data['completed']
+				&& 'http://example.com/thank-you/' === $data['redirectUrl'];
+		} ) );
+
+		$handler = new AjaxHandler();
+		$handler->ajax_check_status();
+	}
+
+	public function test_ajax_check_status_returns_error_when_order_completion_fails(): void {
+		$order_id = 43;
+		$token    = $this->expected_token( $order_id );
+
+		$_POST = array(
+			'order_id' => (string) $order_id,
+			'token'    => $token,
+		);
+
+		$order = \Mockery::mock( 'WC_Order' );
+		$order->shouldReceive( 'get_id' )->andReturn( $order_id );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_reference' )->andReturn( 'ref-fail' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_completed' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_completed_reference' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_idempotency_key' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_idempotency_reference' )->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_status', 'AUTHORIZED' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_key', 'test-uuid-1234' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_reference', 'ref-fail' );
+		$order->shouldReceive( 'save' )->twice();
+		$order->shouldReceive( 'is_paid' )->twice()->andReturn( false );
+		$order->shouldReceive( 'get_currency' )->once()->andReturn( 'NOK' );
+		$order->shouldReceive( 'get_total' )->once()->andReturn( 100.00 );
+		$order->shouldReceive( 'payment_complete' )->never();
+		$order->shouldReceive( 'add_order_note' )->never();
+
+		Functions\expect( 'wc_get_order' )->once()->with( $order_id )->andReturn( $order );
+
+		$api = \Mockery::mock( Api::class );
+		$api->shouldReceive( 'set_order_id' )->once()->with( $order_id );
+		$api->shouldReceive( 'get_payment' )->once()->with( 'ref-fail' )->andReturn( array( 'state' => 'AUTHORIZED' ) );
+		$api->shouldReceive( 'capture_payment' )
+			->once()
+			->with( 'ref-fail', array( 'currency' => 'NOK', 'value' => 10000 ), 'test-uuid-1234' )
+			->andReturn( null );
+
+		$gateway = new Gateway();
+		$gateway->update_option( 'auto_capture', 'yes' );
+		$this->inject_api( $gateway, $api );
+
+		$wc = new class( $gateway ) {
+			private $gateway;
+
+			public function __construct( $gateway ) {
+				$this->gateway = $gateway;
+			}
+
+			public function payment_gateways() {
+				return new class( $this->gateway ) {
+					private $gateway;
+
+					public function __construct( $gateway ) {
+						$this->gateway = $gateway;
+					}
+
+					public function payment_gateways() {
+						return array( 'wcpos_vipps' => $this->gateway );
+					}
+				};
+			}
+		};
+
+		Functions\expect( 'WC' )->twice()->andReturn( $wc );
+		Functions\expect( 'wp_send_json_error' )->once()->with( \Mockery::on( function ( $data ) {
+			return 'AUTHORIZED' === $data['state']
+				&& false === $data['completed']
+				&& 'Vipps payment was accepted, but capture failed. Please try again.' === $data['message'];
+		} ) );
+
+		$handler = new AjaxHandler();
+		$handler->ajax_check_status();
+	}
+
 }

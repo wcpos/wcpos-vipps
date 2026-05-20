@@ -370,6 +370,39 @@ class ApiTest extends TestCase {
 		$this->assertSame( $response_body, $result );
 	}
 
+	public function test_capture_payment_uses_provided_idempotency_key(): void {
+		$api = $this->api_with_token();
+
+		$reference       = 'ref-capture-idempotent';
+		$amount          = array( 'value' => 5000, 'currency' => 'NOK' );
+		$idempotency_key = 'stable-capture-key';
+		$response_body   = array( 'state' => 'CAPTURED' );
+
+		Functions\expect( 'wp_generate_uuid4' )->never();
+
+		Functions\expect( 'wp_remote_request' )
+			->once()
+			->with(
+				\Mockery::on( function ( $url ) use ( $reference ) {
+					return str_contains( $url, '/epayment/v1/payments/' . $reference . '/capture' );
+				} ),
+				\Mockery::on( function ( $args ) use ( $idempotency_key ) {
+					return $idempotency_key === ( $args['headers']['Idempotency-Key'] ?? null );
+				} )
+			)
+			->andReturn( $this->http_response( 200, $response_body ) );
+
+		Functions\expect( 'is_wp_error' )->once()->andReturn( false );
+		Functions\expect( 'wp_remote_retrieve_response_code' )->once()->andReturn( 200 );
+		Functions\expect( 'wp_remote_retrieve_body' )
+			->once()
+			->andReturn( json_encode( $response_body ) );
+
+		$result = $api->capture_payment( $reference, $amount, $idempotency_key );
+
+		$this->assertSame( $response_body, $result );
+	}
+
 	public function test_cancel_payment_sends_request(): void {
 		$api = $this->api_with_token();
 

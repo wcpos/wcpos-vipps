@@ -100,10 +100,15 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug, phoneFlowMode 
 
         const vippsState = response.data.state;
 
-        if (vippsState === 'AUTHORIZED') {
+        if (response.data.completed) {
           stopPolling();
           setState('authorized');
-          appendLog('[CLIENT] Payment authorized — submitting order');
+          appendLog(`[CLIENT] Payment ${vippsState.toLowerCase()} — redirecting to receipt`);
+          if (response.data.redirectUrl) {
+            // WCPOS legacy checkout uses the WooCommerce thank-you page load to fetch
+            // the updated order and route the POS from checkout to the receipt screen.
+            window.location.assign(response.data.redirectUrl);
+          }
         } else if (vippsState === 'ABORTED' || vippsState === 'TERMINATED') {
           stopPolling();
           setState('cancelled');
