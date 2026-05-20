@@ -89,10 +89,12 @@ class GatewayTest extends TestCase {
 			->andReturn( 'http://example.com/checkout/order-pay/123/' );
 
 		$order->shouldReceive( 'update_meta_data' )
-			->zeroOrMoreTimes();
+			->zeroOrMoreTimes()
+			->byDefault();
 
 		$order->shouldReceive( 'save' )
-			->zeroOrMoreTimes();
+			->zeroOrMoreTimes()
+			->byDefault();
 
 		$order->shouldReceive( 'get_currency' )
 			->zeroOrMoreTimes()
@@ -335,7 +337,8 @@ class GatewayTest extends TestCase {
 
 	public function test_complete_paid_order_does_not_recapture_when_capture_was_recorded(): void {
 		$order = $this->make_order_mock( array(
-			'_wcpos_vipps_capture_completed' => 'yes',
+			'_wcpos_vipps_capture_completed'           => 'yes',
+			'_wcpos_vipps_capture_completed_reference' => 'ref-already-captured',
 		) );
 		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-already-captured' )->andReturn( true );
 		$order->shouldReceive( 'add_order_note' )->once();
@@ -347,6 +350,35 @@ class GatewayTest extends TestCase {
 		$this->inject_api( $gateway, $mock_api );
 
 		$this->assertTrue( $gateway->complete_paid_order( $order, 'ref-already-captured', 'AUTHORIZED' ) );
+	}
+
+	public function test_complete_paid_order_recaptures_when_capture_marker_is_for_previous_reference(): void {
+		$order = $this->make_order_mock( array(
+			'_wcpos_vipps_capture_completed'             => 'yes',
+			'_wcpos_vipps_capture_completed_reference'   => 'ref-old',
+			'_wcpos_vipps_capture_idempotency_key'       => 'old-key',
+			'_wcpos_vipps_capture_idempotency_reference' => 'ref-old',
+		) );
+
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_key', 'test-complete-uuid' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_reference', 'ref-new' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_completed', 'yes' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_completed_reference', 'ref-new' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_status', 'CAPTURED' );
+		$order->shouldReceive( 'save' )->twice();
+		$order->shouldReceive( 'payment_complete' )->once()->with( 'ref-new' )->andReturn( true );
+		$order->shouldReceive( 'add_order_note' )->once();
+
+		$mock_api = \Mockery::mock( Api::class );
+		$mock_api->shouldReceive( 'capture_payment' )
+			->once()
+			->with( 'ref-new', array( 'currency' => 'NOK', 'value' => 10000 ), 'test-complete-uuid' )
+			->andReturn( array() );
+
+		$gateway = $this->make_gateway( array( 'auto_capture' => 'yes' ) );
+		$this->inject_api( $gateway, $mock_api );
+
+		$this->assertTrue( $gateway->complete_paid_order( $order, 'ref-new', 'AUTHORIZED' ) );
 	}
 
 	public function test_process_payment_returns_failure_for_missing_order(): void {

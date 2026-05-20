@@ -288,17 +288,20 @@ class Gateway extends \WC_Payment_Gateway {
 			}
 
 			// Auto-capture only authorized payments; captured payments are already settled.
-			$already_captured = 'yes' === (string) $order->get_meta( '_wcpos_vipps_capture_completed' );
+			$captured_reference = (string) $order->get_meta( '_wcpos_vipps_capture_completed_reference' );
+			$already_captured   = 'yes' === (string) $order->get_meta( '_wcpos_vipps_capture_completed' ) && $captured_reference === $reference;
 			if ( 'AUTHORIZED' === $state && 'yes' === $this->get_option( 'auto_capture' ) && ! $already_captured ) {
 				$amount = array(
 					'currency' => $order->get_currency(),
 					'value'    => absint( round( $order->get_total() * 100 ) ),
 				);
 
-				$idempotency_key = (string) $order->get_meta( '_wcpos_vipps_capture_idempotency_key' );
-				if ( '' === $idempotency_key ) {
+				$idempotency_key       = (string) $order->get_meta( '_wcpos_vipps_capture_idempotency_key' );
+				$idempotency_reference = (string) $order->get_meta( '_wcpos_vipps_capture_idempotency_reference' );
+				if ( '' === $idempotency_key || $idempotency_reference !== $reference ) {
 					$idempotency_key = wp_generate_uuid4();
 					$order->update_meta_data( '_wcpos_vipps_capture_idempotency_key', $idempotency_key );
+					$order->update_meta_data( '_wcpos_vipps_capture_idempotency_reference', $reference );
 					$order->save();
 				}
 
@@ -309,6 +312,7 @@ class Gateway extends \WC_Payment_Gateway {
 				}
 
 				$order->update_meta_data( '_wcpos_vipps_capture_completed', 'yes' );
+				$order->update_meta_data( '_wcpos_vipps_capture_completed_reference', $reference );
 				$order->update_meta_data( '_wcpos_vipps_status', 'CAPTURED' );
 				$order->save();
 			}

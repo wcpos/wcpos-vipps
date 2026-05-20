@@ -432,10 +432,14 @@ class AjaxHandlerTest extends TestCase {
 		$order->shouldReceive( 'get_id' )->andReturn( $order_id );
 		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_reference' )->andReturn( 'ref-123' );
 		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_completed' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_completed_reference' )->andReturn( '' );
 		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_idempotency_key' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_idempotency_reference' )->andReturn( '' );
 		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_status', 'AUTHORIZED' );
 		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_key', 'test-uuid-1234' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_reference', 'ref-123' );
 		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_completed', 'yes' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_completed_reference', 'ref-123' );
 		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_status', 'CAPTURED' );
 		$order->shouldReceive( 'save' )->times( 3 );
 		$order->shouldReceive( 'is_paid' )->twice()->andReturn( false );
@@ -504,9 +508,12 @@ class AjaxHandlerTest extends TestCase {
 		$order->shouldReceive( 'get_id' )->andReturn( $order_id );
 		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_reference' )->andReturn( 'ref-fail' );
 		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_completed' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_completed_reference' )->andReturn( '' );
 		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_idempotency_key' )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->with( '_wcpos_vipps_capture_idempotency_reference' )->andReturn( '' );
 		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_status', 'AUTHORIZED' );
 		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_key', 'test-uuid-1234' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( '_wcpos_vipps_capture_idempotency_reference', 'ref-fail' );
 		$order->shouldReceive( 'save' )->twice();
 		$order->shouldReceive( 'is_paid' )->twice()->andReturn( false );
 		$order->shouldReceive( 'get_currency' )->once()->andReturn( 'NOK' );
