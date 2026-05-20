@@ -262,6 +262,12 @@ class Gateway extends \WC_Payment_Gateway {
 			return true;
 		}
 
+		if ( '' === trim( $reference ) ) {
+			$this->last_completion_error = __( 'Vipps payment reference is missing. Please try again.', 'wcpos-vipps' );
+			Logger::log( 'Vipps reference missing; order not completed', 'ERROR', $order->get_id() );
+			return false;
+		}
+
 		$lock_key = 'wcpos_vipps_complete_lock_' . $order->get_id();
 		$lock_val = time() . ':' . wp_generate_uuid4();
 		$acquired = add_option( $lock_key, $lock_val, '', 'no' );

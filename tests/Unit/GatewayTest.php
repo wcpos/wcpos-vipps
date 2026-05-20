@@ -335,6 +335,21 @@ class GatewayTest extends TestCase {
 		$this->assertFalse( $gateway->complete_paid_order( $order, 'ref-locked', 'AUTHORIZED' ) );
 	}
 
+	public function test_complete_paid_order_fails_when_reference_is_missing(): void {
+		$order = $this->make_order_mock();
+		$order->shouldReceive( 'payment_complete' )->never();
+		$order->shouldReceive( 'add_order_note' )->never();
+
+		$mock_api = \Mockery::mock( Api::class );
+		$mock_api->shouldNotReceive( 'capture_payment' );
+
+		$gateway = $this->make_gateway( array( 'auto_capture' => 'yes' ) );
+		$this->inject_api( $gateway, $mock_api );
+
+		$this->assertFalse( $gateway->complete_paid_order( $order, '   ', 'CAPTURED' ) );
+		$this->assertSame( 'Vipps payment reference is missing. Please try again.', $gateway->get_last_completion_error() );
+	}
+
 	public function test_complete_paid_order_does_not_recapture_when_capture_was_recorded(): void {
 		$order = $this->make_order_mock( array(
 			'_wcpos_vipps_capture_completed'           => 'yes',
