@@ -105,6 +105,8 @@ export function useVippsPayment({ ajaxUrl, orderId, token, debug, phoneFlowMode 
           setState('authorized');
           appendLog(`[CLIENT] Payment ${vippsState.toLowerCase()} — redirecting to receipt`);
           if (response.data.redirectUrl) {
+            // WCPOS legacy checkout uses the WooCommerce thank-you page load to fetch
+            // the updated order and route the POS from checkout to the receipt screen.
             window.location.assign(response.data.redirectUrl);
           }
         } else if (vippsState === 'ABORTED' || vippsState === 'TERMINATED') {
