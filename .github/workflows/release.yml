@@ -66,22 +66,33 @@ jobs:
       - name: Build and upload ZIP
         if: steps.check_version.outputs.release == 'true'
         run: |
-          zip -r wcpos-vipps.zip . \
+          # WordPress 7.1.4+ unpacks packages into a randomly suffixed folder and installs a flat zip
+          # there, so the zip must hold the installed folder (catalog slug) as its only top-level entry.
+          mkdir -p "$RUNNER_TEMP/stage/wcpos-vipps"
+          rsync -a --exclude='.git*' ./ "$RUNNER_TEMP/stage/wcpos-vipps/"
+          cd "$RUNNER_TEMP/stage"
+          zip -r "$GITHUB_WORKSPACE/wcpos-vipps.zip" wcpos-vipps \
             -x "*.git*" \
-            -x "node_modules/*" \
-            -x "assets/src/*" \
-            -x "tests/*" \
-            -x "docs/*" \
-            -x "phpunit.xml.dist" \
-            -x "vite.config.ts" \
-            -x "tsconfig.json" \
-            -x ".github/*" \
-            -x "composer.json" \
-            -x "composer.lock" \
-            -x "package.json" \
-            -x "package-lock.json" \
-            -x "phpcs.xml.dist" \
-            -x "vendor/bin/*"
+            -x "wcpos-vipps/node_modules/*" \
+            -x "wcpos-vipps/assets/src/*" \
+            -x "wcpos-vipps/tests/*" \
+            -x "wcpos-vipps/docs/*" \
+            -x "wcpos-vipps/phpunit.xml.dist" \
+            -x "wcpos-vipps/vite.config.ts" \
+            -x "wcpos-vipps/tsconfig.json" \
+            -x "wcpos-vipps/.github/*" \
+            -x "wcpos-vipps/composer.json" \
+            -x "wcpos-vipps/composer.lock" \
+            -x "wcpos-vipps/package.json" \
+            -x "wcpos-vipps/package-lock.json" \
+            -x "wcpos-vipps/phpcs.xml.dist" \
+            -x "wcpos-vipps/vendor/bin/*"
+          cd "$GITHUB_WORKSPACE"
+          TOP_LEVEL=$(unzip -Z1 wcpos-vipps.zip | cut -d/ -f1 | sort -u)
+          if [ "$TOP_LEVEL" != "wcpos-vipps" ]; then
+            echo "::error::wcpos-vipps.zip must contain only wcpos-vipps/ at the top level, found: $TOP_LEVEL"
+            exit 1
+          fi
           gh release upload "v$VERSION" wcpos-vipps.zip --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
